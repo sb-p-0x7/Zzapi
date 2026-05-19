@@ -1,4 +1,4 @@
-# 🍕 PizzaFactory
+# 🍕 Zzapi
 
 ImGui 기반 피자 공장 시뮬레이터
 
