@@ -18,4 +18,5 @@ public:
 
 private:
     PizzaFactoryModel* m_model = nullptr;
+    int m_frameCount = 0;
 };
