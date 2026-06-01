@@ -16,8 +16,6 @@ public:
     /// ImGui 프레임 내에서 호출
     void Render();
 
-    // TODO: 필요한 렌더링 섹션 메서드를 private에 추가하세요.
-
 private:
     PizzaFactoryModel*  m_model      = nullptr;
     FactoryController*  m_controller = nullptr;

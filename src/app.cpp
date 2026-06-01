@@ -12,7 +12,6 @@ static DashboardView       s_view;
 
 void App::Init()
 {
-    s_model = PizzaFactoryModel();
     s_controller.Init(&s_model);
     s_view.Init(&s_model, &s_controller);
 }
