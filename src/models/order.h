@@ -15,19 +15,23 @@ private:
     bool requiresSauce;
     bool requiresCheese;
     bool requiresBake;
+    bool requiresCut;
+    bool requiresTopping;
     
     int timeLeft; // 프레임 단위의 남은 시간
     int reward;
     OrderStatus status;
 
 public:
-    Order(int id, PizzaSize size, bool sauce, bool cheese, bool bake, int time, int reward);
+    Order(int id, PizzaSize size, bool sauce, bool cheese, bool bake, bool cut, bool topping, int time, int reward);
 
     int getId() const;
     PizzaSize getRequiredSize() const;
     bool getRequiresSauce() const;
     bool getRequiresCheese() const;
     bool getRequiresBake() const;
+    bool getRequiresCut() const;
+    bool getRequiresTopping() const;
     
     int getTimeLeft() const;
     int getReward() const;
@@ -66,6 +70,7 @@ public:
     const std::vector<Order*>& getActiveOrders() const;
     const std::vector<Order*>& getCompletedOrders() const;
     const std::vector<Order*>& getFailedOrders() const;
+    void reset();
     
 private:
     void generateRandomOrder();

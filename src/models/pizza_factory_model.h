@@ -14,6 +14,10 @@ class PizzaFactoryModel {
 private:
   OrderManager* orderManager;
   bool isSpawningEnabled;
+  bool isRunning;
+  float simulationSpeed;
+  int breakdownCount;
+  int totalEarnings;
 
   std::vector<Machine*> pipeline;
   std::vector<Pizza*> finishedPizzas;
@@ -31,6 +35,20 @@ public:
   bool getIsSpawningEnabled() const { return isSpawningEnabled; }
   void setIsSpawningEnabled(bool enabled) { isSpawningEnabled = enabled; }
 
+  bool getIsRunning() const { return isRunning; }
+  void setIsRunning(bool running) { isRunning = running; }
+
+  float getSimulationSpeed() const { return simulationSpeed; }
+  void setSimulationSpeed(float speed) { simulationSpeed = speed; }
+
+  int getBreakdownCount() const { return breakdownCount; }
+  void incrementBreakdownCount() { breakdownCount++; }
+  void resetBreakdownCount() { breakdownCount = 0; }
+
+  int getTotalEarnings() const { return totalEarnings; }
+  void addEarnings(int amount) { totalEarnings += amount; }
+  void resetEarnings() { totalEarnings = 0; }
+
   const std::vector<Machine*>& getPipeline() const { return pipeline; }
   const std::vector<Pizza*>& getFinishedPizzas() const { return finishedPizzas; }
   const std::vector<Pizza*>& getLostPizzas() const { return lostPizzas; }
@@ -38,4 +56,11 @@ public:
   void addFinishedPizza(Pizza* pizza) { finishedPizzas.push_back(pizza); }
   void addLostPizza(Pizza* pizza) { lostPizzas.push_back(pizza); }
   int generateNextPizzaId() { return nextPizzaId++; }
+  void resetFinishedAndLostPizzas() {
+    for (Pizza* p : finishedPizzas) delete p;
+    finishedPizzas.clear();
+    for (Pizza* p : lostPizzas) delete p;
+    lostPizzas.clear();
+    nextPizzaId = 1;
+  }
 };

@@ -8,6 +8,7 @@ void DoughStretcher::process() {
   for (Pizza* pizza : pizzasInProcess) {
     if (pizza) {
       pizza->setDoughState(DoughState::STRETCHED);
+      pizza->setSize(targetSize);
     }
   }
 }
@@ -182,5 +183,44 @@ Pizza* ConveyorMachine::ejectPizza() {
 // ConveyorBelt
 // =============================================================================
 void ConveyorBelt::process() {
-  // 위치 이동은 advance() 및 시뮬레이션 루프의 배출/투입 단계에서 이루어집니다.
+  if (!isPoweredOn) return;
+  // 마지막 슬롯이 비어있을 때만 벨트를 한 칸 전진시킴
+  // (마지막 슬롯에 피자가 있으면 배출 대기 상태이므로 이동하지 않음)
+  if (belt[length - 1] == nullptr) {
+    for (int i = length - 1; i > 0; --i) {
+      belt[i] = belt[i - 1];
+    }
+    belt[0] = nullptr;
+  }
+}
+
+void Machine::forceBreak() {
+  isBroken = true;
+  durability = 0.0f;
+  currentRepairTimer = repairTime;
+}
+
+void Machine::instantRepair() {
+  isBroken = false;
+  durability = maxDurability;
+  currentRepairTimer = 0;
+}
+
+void Machine::resetState() {
+  instantRepair();
+  isPoweredOn = true;
+}
+
+void NonConveyorMachine::resetState() {
+  Machine::resetState();
+  for (Pizza* p : pizzasInProcess) delete p;
+  pizzasInProcess.clear();
+}
+
+void ConveyorMachine::resetState() {
+  Machine::resetState();
+  for (Pizza* p : belt) {
+    if (p) delete p;
+  }
+  std::fill(belt.begin(), belt.end(), nullptr);
 }

@@ -48,6 +48,9 @@ public:
   void togglePower() { isPoweredOn = !isPoweredOn; }
   int getRepairTime() const { return repairTime; }
   int getCurrentRepairTimer() const { return currentRepairTimer; }
+  void forceBreak();
+  void instantRepair();
+  virtual void resetState();
 
   void decreaseDurability(float amount = 1.0f);
 };
@@ -67,6 +70,8 @@ public:
       : Machine(name, speed, durability), capacity(capacity) {}
 
   int getCapacity() const { return capacity; }
+  const std::vector<Pizza*>& getPizzasInProcess() const { return pizzasInProcess; }
+  void resetState() override;
 
   bool canInsert() const override;
   bool insertPizza(Pizza* pizza) override;
@@ -94,6 +99,8 @@ public:
 
   int getLength() const { return length; }
   float getMoveSpeed() const { return moveSpeed; }
+  const std::vector<Pizza*>& getBelt() const { return belt; }
+  void resetState() override;
 
   bool canInsert() const override;
   bool insertPizza(Pizza* pizza) override;
@@ -133,6 +140,7 @@ public:
         targetSize(targetSize) {}
 
   void setTargetSize(PizzaSize size) { targetSize = size; }
+  PizzaSize getTargetSize() const { return targetSize; }
 
   void process() override;
 };
@@ -170,6 +178,7 @@ public:
         availableToppings(toppings) {}
 
   void addAvailableTopping(ToppingType t) { availableToppings.push_back(t); }
+  const std::vector<ToppingType>& getAvailableToppings() const { return availableToppings; }
 
   void process() override;
 };
@@ -204,6 +213,7 @@ public:
         sliceCount(sliceCount) {}
 
   void setSliceCount(int count) { sliceCount = count; }
+  int getSliceCount() const { return sliceCount; }
 
   void process() override;
 };

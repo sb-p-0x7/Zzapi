@@ -1,14 +1,17 @@
 #include "order.h"
 
-Order::Order(int id, PizzaSize size, bool sauce, bool cheese, bool bake, int time, int reward)
+Order::Order(int id, PizzaSize size, bool sauce, bool cheese, bool bake, bool cut, bool topping, int time, int reward)
     : id(id), requiredSize(size), requiresSauce(sauce), requiresCheese(cheese),
-      requiresBake(bake), timeLeft(time), reward(reward), status(OrderStatus::PENDING) {}
+      requiresBake(bake), requiresCut(cut), requiresTopping(topping),
+      timeLeft(time), reward(reward), status(OrderStatus::PENDING) {}
 
 int Order::getId() const { return id; }
 PizzaSize Order::getRequiredSize() const { return requiredSize; }
 bool Order::getRequiresSauce() const { return requiresSauce; }
 bool Order::getRequiresCheese() const { return requiresCheese; }
 bool Order::getRequiresBake() const { return requiresBake; }
+bool Order::getRequiresCut() const { return requiresCut; }
+bool Order::getRequiresTopping() const { return requiresTopping; }
 int Order::getTimeLeft() const { return timeLeft; }
 int Order::getReward() const { return reward; }
 OrderStatus Order::getStatus() const { return status; }
@@ -35,6 +38,8 @@ bool Order::checkMatch(Pizza* pizza) const {
     if (pizza->getHasSauce() != requiresSauce) return false;
     if (pizza->getHasCheese() != requiresCheese) return false;
     if (pizza->getIsBaked() != requiresBake) return false;
+    if (pizza->getIsCut() != requiresCut) return false;
+    if (pizza->getHasTopping() != requiresTopping) return false;
     
     return true;
 }
@@ -98,18 +103,33 @@ void OrderManager::generateRandomOrder() {
     bool needsSauce = (rand() % 2) == 1;
     bool needsCheese = (rand() % 2) == 1;
     bool needsBake = (rand() % 2) == 1;
+    bool needsCut = (rand() % 2) == 1;
+    bool needsTopping = (rand() % 2) == 1;
     
     int timeLimit = 1800 + (rand() % 1200); // 30~50초 정도의 제한시간
     int reward = 100; // 임시 기본 보상
     if (needsSauce) reward += 20;
     if (needsCheese) reward += 30;
     if (needsBake) reward += 50;
+    if (needsCut) reward += 15;
+    if (needsTopping) reward += 35;
     if (size == PizzaSize::LARGE) reward += 40;
     
-    Order* newOrder = new Order(nextOrderId++, size, needsSauce, needsCheese, needsBake, timeLimit, reward);
+    Order* newOrder = new Order(nextOrderId++, size, needsSauce, needsCheese, needsBake, needsCut, needsTopping, timeLimit, reward);
     activeOrders.push_back(newOrder);
 }
 
 const std::vector<Order*>& OrderManager::getActiveOrders() const { return activeOrders; }
 const std::vector<Order*>& OrderManager::getCompletedOrders() const { return completedOrders; }
 const std::vector<Order*>& OrderManager::getFailedOrders() const { return failedOrders; }
+
+void OrderManager::reset() {
+    for (Order* o : activeOrders) delete o;
+    activeOrders.clear();
+    for (Order* o : completedOrders) delete o;
+    completedOrders.clear();
+    for (Order* o : failedOrders) delete o;
+    failedOrders.clear();
+    nextOrderId = 1;
+    tickCount = 0;
+}

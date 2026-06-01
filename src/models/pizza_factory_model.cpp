@@ -3,6 +3,10 @@
 PizzaFactoryModel::PizzaFactoryModel() {
   orderManager = new OrderManager();
   isSpawningEnabled = false; // 기본으로 꺼둠
+  isRunning = false;
+  simulationSpeed = 1.0f;
+  breakdownCount = 0;
+  totalEarnings = 0;
   InitDefaultPipeline();
 }
 
@@ -32,10 +36,20 @@ void PizzaFactoryModel::InitDefaultPipeline() {
   pipeline.push_back(new CheeseSpreader());
   // 6. 컨베이어 벨트
   pipeline.push_back(new ConveyorBelt());
-  // 7. 오븐
-  pipeline.push_back(new Oven());
+  // 7. 커터
+  pipeline.push_back(new Cutter());
   // 8. 컨베이어 벨트
   pipeline.push_back(new ConveyorBelt());
-  // 9. 포장기
+  // 9. 오븐
+  pipeline.push_back(new Oven());
+  // 10. 컨베이어 벨트
+  pipeline.push_back(new ConveyorBelt());
+  // 11. 토핑 어플라이어
+  pipeline.push_back(new ToppingApplier());
+  // 12. 컨베이어 벨트
+  pipeline.push_back(new ConveyorBelt());
+  // 13. 포장기
   pipeline.push_back(new PackagingMachine());
+  // 14. 컨베이어 벨트
+  pipeline.push_back(new ConveyorBelt());
 }

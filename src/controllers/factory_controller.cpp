@@ -9,10 +9,19 @@ void FactoryController::Init(PizzaFactoryModel* model)
 void FactoryController::Update()
 {
     if (!m_model) return;
+    if (!m_model->getIsRunning()) return;
 
-    // 1. 새 피자 스폰 로직 (예: 60프레임마다 1개씩 스폰)
+    m_tickAccumulator += m_model->getSimulationSpeed();
+    while (m_tickAccumulator >= 1.0f) {
+        SingleTick();
+        m_tickAccumulator -= 1.0f;
+    }
+}
+
+void FactoryController::SingleTick()
+{
     m_frameCount++;
-    
+
     // 주문 매니저 업데이트
     m_model->getOrderManager()->tick();
 
@@ -31,9 +40,13 @@ void FactoryController::Update()
     int n = m_model->getPipeline().size();
     for (int i = n - 1; i >= 0; --i) {
         Machine* current = m_model->getPipeline()[i];
-        
+
         // 매 프레임 수리 등 상태 업데이트
+        bool wasBroken = current->getIsBroken();
         current->tick();
+        if (!wasBroken && current->getIsBroken()) {
+            m_model->incrementBreakdownCount();
+        }
 
         // 고장난 머신은 작동(process)도 배출(eject)도 하지 않고 멈춤
         if (current->getIsBroken()) {
@@ -49,9 +62,18 @@ void FactoryController::Update()
                 // 마지막 머신이면 배출
                 Pizza* finishedPizza = current->ejectPizza();
                 if (finishedPizza) {
+                    // 완료 가능한 주문 보상 찾기
+                    int reward = 0;
+                    for (Order* order : m_model->getOrderManager()->getActiveOrders()) {
+                        if (order->checkMatch(finishedPizza)) {
+                            reward = order->getReward();
+                            break;
+                        }
+                    }
                     if (m_model->getOrderManager()->verifyPizza(finishedPizza)) {
-                        // 주문 완료 처리됨, 피자는 전달되었으므로 메모리 해제
-                        delete finishedPizza;
+                        // 주문 완료 처리됨, 피자는 전달되었으므로 모델의 finished 리스트에 보관
+                        m_model->addEarnings(reward);
+                        m_model->addFinishedPizza(finishedPizza);
                     } else {
                         // 주문 조건과 맞지 않는 피자는 로스(폐기) 처리
                         m_model->addLostPizza(finishedPizza);
@@ -69,5 +91,57 @@ void FactoryController::Update()
                 }
             }
         }
+    }
+}
+
+void FactoryController::togglePlayPause()
+{
+    if (m_model) {
+        m_model->setIsRunning(!m_model->getIsRunning());
+    }
+}
+
+void FactoryController::resetSimulation()
+{
+    if (m_model) {
+        m_model->setIsRunning(false);
+        m_model->setIsSpawningEnabled(false);
+        m_model->resetBreakdownCount();
+        m_model->resetEarnings();
+        m_model->resetFinishedAndLostPizzas();
+
+        // 모든 머신 초기화
+        for (Machine* m : m_model->getPipeline()) {
+            m->resetState();
+        }
+        
+        // 주문 관리자 초기화
+        m_model->getOrderManager()->reset();
+
+    }
+}
+
+void FactoryController::forceBreakMachine(int idx)
+{
+    if (m_model && idx >= 0 && idx < (int)m_model->getPipeline().size()) {
+        Machine* m = m_model->getPipeline()[idx];
+        if (!m->getIsBroken()) {
+            m->forceBreak();
+            m_model->incrementBreakdownCount();
+        }
+    }
+}
+
+void FactoryController::instantRepairMachine(int idx)
+{
+    if (m_model && idx >= 0 && idx < (int)m_model->getPipeline().size()) {
+        m_model->getPipeline()[idx]->instantRepair();
+    }
+}
+
+void FactoryController::toggleMachinePower(int idx)
+{
+    if (m_model && idx >= 0 && idx < (int)m_model->getPipeline().size()) {
+        m_model->getPipeline()[idx]->togglePower();
     }
 }

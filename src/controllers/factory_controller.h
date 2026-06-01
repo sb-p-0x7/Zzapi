@@ -14,9 +14,17 @@ public:
     /// 매 프레임 업데이트
     void Update();
 
-    // TODO: 피자 공장 로직 메서드를 여기에 추가하세요.
+    void togglePlayPause();
+    void resetSimulation();
+    void forceBreakMachine(int idx);
+    void instantRepairMachine(int idx);
+    void toggleMachinePower(int idx);
+
+private:
+    void SingleTick();
 
 private:
     PizzaFactoryModel* m_model = nullptr;
     int m_frameCount = 0;
+    float m_tickAccumulator = 0.0f;
 };
