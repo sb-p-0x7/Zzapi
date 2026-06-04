@@ -46,6 +46,7 @@ public:
   bool getIsPoweredOn() const { return isPoweredOn; }
   void setPower(bool on) { isPoweredOn = on; }
   void togglePower() { isPoweredOn = !isPoweredOn; }
+  void setSpeed(float s) { speed = s; }
   int getRepairTime() const { return repairTime; }
   int getCurrentRepairTimer() const { return currentRepairTimer; }
   void forceBreak();
@@ -61,8 +62,10 @@ public:
 // =============================================================================
 class NonConveyorMachine : public Machine {
 protected:
-  int capacity;                       // 한 사이클에 처리 가능한 피자 수
+  int capacity;                        // 한 사이클에 처리 가능한 피자 수
   std::vector<Pizza*> pizzasInProcess; // 현재 처리 중인 피자들
+  int m_processTimer   = 0;            // 현재 처리된 프레임 수
+  int m_requiredFrames = 0;            // 배출까지 필요한 프레임 수 (60 / speed)
 
 public:
   NonConveyorMachine(const std::string& name, float speed, float durability,
@@ -70,6 +73,9 @@ public:
       : Machine(name, speed, durability), capacity(capacity) {}
 
   int getCapacity() const { return capacity; }
+  void setCapacity(int c) { capacity = c; }
+  int getProcessTimer()   const { return m_processTimer; }
+  int getRequiredFrames() const { return m_requiredFrames; }
   const std::vector<Pizza*>& getPizzasInProcess() const { return pizzasInProcess; }
   void resetState() override;
 
@@ -116,12 +122,14 @@ public:
 // =============================================================================
 
 class ConveyorBelt : public ConveyorMachine {
+  int m_tickCounter = 0;
 public:
   ConveyorBelt(float speed = 1.0f, float durability = 100.0f,
                int length = 3, float moveSpeed = 1.0f)
       : ConveyorMachine("ConveyorBelt", speed, durability, length, moveSpeed) {}
 
   void process() override;
+  void resetState() override { ConveyorMachine::resetState(); m_tickCounter = 0; }
 };
 
 // =============================================================================
