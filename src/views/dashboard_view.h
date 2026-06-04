@@ -1,4 +1,5 @@
 #pragma once
+#include "imgui.h"
 
 class PizzaFactoryModel;
 class FactoryController;
@@ -17,6 +18,11 @@ public:
     void Render();
 
 private:
+    void RenderMachineSettingsPanel();
+
     PizzaFactoryModel*  m_model      = nullptr;
     FactoryController*  m_controller = nullptr;
+
+    int     m_selectedMachineIdx = -1;   // -1 = 선택 없음
+    ImVec2  m_settingsPanelPos;          // 설정 창 위치
 };

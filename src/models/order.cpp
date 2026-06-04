@@ -33,14 +33,15 @@ bool Order::tick() {
 
 bool Order::checkMatch(Pizza* pizza) const {
     if (!pizza) return false;
-    
+
     if (pizza->getSize() != requiredSize) return false;
-    if (pizza->getHasSauce() != requiresSauce) return false;
-    if (pizza->getHasCheese() != requiresCheese) return false;
-    if (pizza->getIsBaked() != requiresBake) return false;
-    if (pizza->getIsCut() != requiresCut) return false;
-    if (pizza->getHasTopping() != requiresTopping) return false;
-    
+    // 주문이 요구하는 항목만 확인 (요구하지 않는 항목은 있어도 무관)
+    if (requiresSauce   && !pizza->getHasSauce())   return false;
+    if (requiresCheese  && !pizza->getHasCheese())  return false;
+    if (requiresBake    && !pizza->getIsBaked())     return false;
+    if (requiresCut     && !pizza->getIsCut())       return false;
+    if (requiresTopping && !pizza->getHasTopping())  return false;
+
     return true;
 }
 
@@ -95,10 +96,8 @@ bool OrderManager::verifyPizza(Pizza* pizza) {
 
 void OrderManager::generateRandomOrder() {
     // 랜덤으로 피자 스펙 결정
-    int sizeRand = rand() % 3;
+    // DoughStretcher 기본 타겟이 MEDIUM이므로 주문도 MEDIUM으로 고정
     PizzaSize size = PizzaSize::MEDIUM;
-    if (sizeRand == 0) size = PizzaSize::SMALL;
-    else if (sizeRand == 2) size = PizzaSize::LARGE;
     
     bool needsSauce = (rand() % 2) == 1;
     bool needsCheese = (rand() % 2) == 1;

@@ -100,7 +100,7 @@ static void DrawConveyorBelt(ImDrawList* drawList, ImVec2 start, ImVec2 end, boo
     }
 }
 
-static void DrawMachineNode(ImDrawList* drawList, ImVec2 center, Machine* machine, const char* nameKo, const char* iconStr, int pipelineIdx) {
+static bool DrawMachineNode(ImDrawList* drawList, ImVec2 center, Machine* machine, const char* nameKo, const char* iconStr, int pipelineIdx) {
     ImVec2 pMin(center.x - 45, center.y - 45);
     ImVec2 pMax(center.x + 45, center.y + 45);
     
@@ -166,55 +166,17 @@ static void DrawMachineNode(ImDrawList* drawList, ImVec2 center, Machine* machin
         }
     }
     
-    // Clickable area for Popups
+    // Clickable invisible button over machine node
     ImGui::SetCursorScreenPos(ImVec2(center.x - 45, center.y - 45));
     char btnId[64];
     snprintf(btnId, sizeof(btnId), "##btn_%d", pipelineIdx);
-    if (ImGui::InvisibleButton(btnId, ImVec2(90, 90))) {
-        ImGui::OpenPopup(btnId);
-    }
-    
+    bool clicked = ImGui::InvisibleButton(btnId, ImVec2(90, 90));
+
     if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
         machine->togglePower();
     }
-    
-    // Popup Menu config
-    if (ImGui::BeginPopup(btnId)) {
-        ImGui::TextColored(ImVec4(0.2f, 0.6f, 0.9f, 1.0f), "⚙️ %s 설정", nameKo);
-        ImGui::Separator();
-        
-        bool power = machine->getIsPoweredOn();
-        if (ImGui::Checkbox("전원 가동 (Power On)", &power)) {
-            machine->setPower(power);
-        }
-        
-        if (auto* stretcher = dynamic_cast<DoughStretcher*>(machine)) {
-            ImGui::Text("도우 타겟 크기:");
-            int currentSize = (int)stretcher->getTargetSize();
-            if (ImGui::RadioButton("Small (S)", currentSize == 0)) stretcher->setTargetSize(PizzaSize::SMALL);
-            if (ImGui::RadioButton("Medium (M)", currentSize == 1)) stretcher->setTargetSize(PizzaSize::MEDIUM);
-            if (ImGui::RadioButton("Large (L)", currentSize == 2)) stretcher->setTargetSize(PizzaSize::LARGE);
-        }
-        else if (auto* cutter = dynamic_cast<Cutter*>(machine)) {
-            ImGui::Text("커터 조각수:");
-            int slices = cutter->getSliceCount();
-            if (ImGui::SliderInt("조각 수", &slices, 4, 12)) {
-                if (slices % 2 != 0) slices++;
-                cutter->setSliceCount(slices);
-            }
-        }
-        else if (auto* oven = dynamic_cast<Oven*>(machine)) {
-            ImGui::Text("오븐 온도 설정:");
-            float temp = oven->getTemperature();
-            if (ImGui::SliderFloat("온도 (°C)", &temp, 150.0f, 350.0f, "%.0f")) {
-                oven->setTemperature(temp);
-            }
-        }
-        
-        ImGui::Separator();
-        ImGui::Text("기계 내구도: %.1f%%", machine->getDurability());
-        ImGui::EndPopup();
-    }
+
+    return clicked;
 }
 
 static void DrawDoughStorageVisual(ImDrawList* drawList, ImVec2 center) {
@@ -254,52 +216,26 @@ static void DrawCounterVisual(ImDrawList* drawList, ImVec2 center, PizzaFactoryM
     }
 }
 
-// Calculate the belt path slot position
-static ImVec2 GetBeltPosition(int pipelineIdx, float t, ImVec2 origin) {
-    ImVec2 p;
-    if (pipelineIdx == 1) { // Stretcher (260,100) to Sauce (420,100)
-        p.x = 260.0f + (420.0f - 260.0f) * t;
-        p.y = 100.0f;
-    } else if (pipelineIdx == 3) { // Sauce (420,100) to Cheese (580,100)
-        p.x = 420.0f + (580.0f - 420.0f) * t;
-        p.y = 100.0f;
-    } else if (pipelineIdx == 5) { // Curve Cheese (580,100) to Cutter (580,260) via (680,100) and (680,260)
-        float dist = t * 360.0f;
-        if (dist < 100.0f) {
-            p.x = 580.0f + dist;
-            p.y = 100.0f;
-        } else if (dist < 260.0f) {
-            p.x = 680.0f;
-            p.y = 100.0f + (dist - 100.0f);
-        } else {
-            p.x = 680.0f - (dist - 260.0f);
-            p.y = 260.0f;
-        }
-    } else if (pipelineIdx == 7) { // Cutter (580,260) to Oven (420,260) (flowing right to left)
-        p.x = 580.0f - (580.0f - 420.0f) * t;
-        p.y = 260.0f;
-    } else if (pipelineIdx == 9) { // Oven (420,260) to Topping (260,260) (flowing right to left)
-        p.x = 420.0f - (420.0f - 260.0f) * t;
-        p.y = 260.0f;
-    } else if (pipelineIdx == 11) { // Curve Topping (260,260) to Packaging (260,420) via (160,260) and (160,420)
-        float dist = t * 360.0f;
-        if (dist < 100.0f) {
-            p.x = 260.0f - dist;
-            p.y = 260.0f;
-        } else if (dist < 260.0f) {
-            p.x = 160.0f;
-            p.y = 260.0f + (dist - 100.0f);
-        } else {
-            p.x = 160.0f + (dist - 260.0f);
-            p.y = 420.0f;
-        }
-    } else if (pipelineIdx == 13) { // Packaging (260,420) to Counter (420,420)
-        p.x = 260.0f + (420.0f - 260.0f) * t;
-        p.y = 420.0f;
-    } else {
-        p = ImVec2(100.0f, 100.0f);
-    }
-    return ImVec2(origin.x + p.x, origin.y + p.y);
+static const char* GetMachineNameKo(Machine* m) {
+    if (dynamic_cast<DoughStretcher*>(m))   return "도우 스트레쳐";
+    if (dynamic_cast<SauceSpreader*>(m))    return "소스 스프레더";
+    if (dynamic_cast<CheeseSpreader*>(m))   return "치즈 스프레더";
+    if (dynamic_cast<Cutter*>(m))           return "커터";
+    if (dynamic_cast<Oven*>(m))             return "오븐";
+    if (dynamic_cast<ToppingApplier*>(m))   return "토핑 어플라이어";
+    if (dynamic_cast<PackagingMachine*>(m)) return "페키져";
+    return "머신";
+}
+
+static const char* GetMachineIcon(Machine* m) {
+    if (dynamic_cast<DoughStretcher*>(m))   return "🫓";
+    if (dynamic_cast<SauceSpreader*>(m))    return "🥫";
+    if (dynamic_cast<CheeseSpreader*>(m))   return "🧀";
+    if (dynamic_cast<Cutter*>(m))           return "🔪";
+    if (dynamic_cast<Oven*>(m))             return "🔥";
+    if (dynamic_cast<ToppingApplier*>(m))   return "🍕";
+    if (dynamic_cast<PackagingMachine*>(m)) return "📦";
+    return "⚙️";
 }
 
 // =============================================================================
@@ -389,91 +325,180 @@ void DashboardView::Render()
     ImGui::Spacing();
 
     // -------------------------------------------------------------------------
-    // Left Canvas Child: S-curve pipeline graphic
+    // Left Canvas Child: dynamic snake pipeline graphic
     // -------------------------------------------------------------------------
-    ImGui::BeginChild("FactoryCanvasChild", ImVec2(900, 530), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove);
-    
-    ImDrawList* drawList = ImGui::GetWindowDrawList();
-    ImVec2 origin = ImGui::GetCursorScreenPos();
 
-    // Draw grid background canvas
-    drawList->AddRectFilled(origin, ImVec2(origin.x + 880, origin.y + 510), ImColor(30, 34, 40), 12.0f);
-    
-    // Draw grid subtle guide lines
-    for (float g = 40.0f; g < 880.0f; g += 40.0f) {
-        drawList->AddLine(ImVec2(origin.x + g, origin.y), ImVec2(origin.x + g, origin.y + 510), ImColor(40, 45, 50, 100), 1.0f);
-    }
-    for (float g = 40.0f; g < 510.0f; g += 40.0f) {
-        drawList->AddLine(ImVec2(origin.x, origin.y + g), ImVec2(origin.x + 880, origin.y + g), ImColor(40, 45, 50, 100), 1.0f);
-    }
+    // Layout constants
+    const int   MACHINES_PER_ROW = 3;
+    const float SLOT_PX          = 50.0f;  // pixels per belt slot
+    const float MACHINE_R        = 45.0f;
+    const float ROW_DY           = 150.0f;
+    const float UTURN_DX         = 65.0f;
+    const float PAD_X            = 180.0f;
+    const float PAD_Y            = 90.0f;
+    const float SPAWNER_BELT_PX  = 60.0f;
 
-    // 1. Draw Visual Belts (Paths)
-    // Dough Storage to Stretcher
-    DrawConveyorBelt(drawList, ImVec2(origin.x + 100, origin.y + 100), ImVec2(origin.x + 260, origin.y + 100));
-    
-    // Index 1: Stretcher to Sauce
-    DrawConveyorBelt(drawList, ImVec2(origin.x + 260, origin.y + 100), ImVec2(origin.x + 420, origin.y + 100));
-    
-    // Index 3: Sauce to Cheese
-    DrawConveyorBelt(drawList, ImVec2(origin.x + 420, origin.y + 100), ImVec2(origin.x + 580, origin.y + 100));
-    
-    // Index 5: Curve Cheese to Cutter (Right U-Turn)
-    DrawConveyorBelt(drawList, ImVec2(origin.x + 580, origin.y + 100), ImVec2(origin.x + 680, origin.y + 100));
-    DrawConveyorBelt(drawList, ImVec2(origin.x + 680, origin.y + 100), ImVec2(origin.x + 680, origin.y + 260));
-    DrawConveyorBelt(drawList, ImVec2(origin.x + 680, origin.y + 260), ImVec2(origin.x + 580, origin.y + 260), true); // reverse anim
-    
-    // Index 7: Cutter to Oven (Flowing Right-to-Left)
-    DrawConveyorBelt(drawList, ImVec2(origin.x + 580, origin.y + 260), ImVec2(origin.x + 420, origin.y + 260), true);
-    
-    // Index 9: Oven to Topping (Flowing Right-to-Left)
-    DrawConveyorBelt(drawList, ImVec2(origin.x + 420, origin.y + 260), ImVec2(origin.x + 260, origin.y + 260), true);
-    
-    // Index 11: Curve Topping to Packaging (Left U-Turn)
-    DrawConveyorBelt(drawList, ImVec2(origin.x + 260, origin.y + 260), ImVec2(origin.x + 160, origin.y + 260), true);
-    DrawConveyorBelt(drawList, ImVec2(origin.x + 160, origin.y + 260), ImVec2(origin.x + 160, origin.y + 420));
-    DrawConveyorBelt(drawList, ImVec2(origin.x + 160, origin.y + 420), ImVec2(origin.x + 260, origin.y + 420));
-    
-    // Index 13: Packaging to Counter
-    DrawConveyorBelt(drawList, ImVec2(origin.x + 260, origin.y + 420), ImVec2(origin.x + 420, origin.y + 420));
-
-    // 2. Draw Moving Pizzas on the Belts
     const auto& pipeline = m_model->getPipeline();
-    for (int i = 0; i < (int)pipeline.size(); ++i) {
-        auto* belt = dynamic_cast<ConveyorMachine*>(pipeline[i]);
-        if (belt) {
-            const auto& slots = belt->getBelt();
-            int len = slots.size();
-            for (int s = 0; s < len; ++s) {
-                if (slots[s] != nullptr) {
-                    float t = (s + 0.5f) / len;
-                    ImVec2 pizzaPos = GetBeltPosition(i, t, origin);
-                    DrawPizza(drawList, pizzaPos, slots[s]);
-                }
+
+    // Collect non-conveyor machines (even indices) and their following belt
+    struct MachInfo { Machine* machine; int pipeIdx; ConveyorMachine* nextBelt; };
+    std::vector<MachInfo> machList;
+    for (int i = 0; i < (int)pipeline.size(); i += 2) {
+        ConveyorMachine* belt = (i + 1 < (int)pipeline.size())
+            ? dynamic_cast<ConveyorMachine*>(pipeline[i + 1]) : nullptr;
+        machList.push_back({pipeline[i], i, belt});
+    }
+    int N = (int)machList.size();
+
+    // Compute machine center positions (snake layout)
+    std::vector<ImVec2> centers(N);
+    {
+        float cx = PAD_X, cy = PAD_Y;
+        int dir = 1;
+        for (int i = 0; i < N; i++) {
+            centers[i] = {cx, cy};
+            if (i + 1 < N) {
+                float beltPx = machList[i].nextBelt
+                    ? machList[i].nextBelt->getLength() * SLOT_PX : SLOT_PX * 3;
+                bool lastInRow = ((i % MACHINES_PER_ROW) == MACHINES_PER_ROW - 1);
+                if (lastInRow) { cy += ROW_DY; dir *= -1; }
+                else           { cx += dir * (MACHINE_R * 2.0f + beltPx); }
             }
         }
     }
 
-    // 3. Draw Static Spawner & Counter visuals
-    DrawDoughStorageVisual(drawList, ImVec2(origin.x + 100, origin.y + 100));
-    DrawCounterVisual(drawList, ImVec2(origin.x + 420, origin.y + 420), m_model);
+    // Spawner / counter positions
+    ImVec2 spawnerCenter = {centers[0].x - MACHINE_R - SPAWNER_BELT_PX - MACHINE_R, centers[0].y};
+    int    lastRow       = (N - 1) / MACHINES_PER_ROW;
+    int    lastDir       = (lastRow % 2 == 0) ? 1 : -1;
+    float  lastBeltPx    = machList[N-1].nextBelt
+        ? machList[N-1].nextBelt->getLength() * SLOT_PX : SLOT_PX * 3;
+    ImVec2 counterCenter = {
+        centers[N-1].x + lastDir * (MACHINE_R + lastBeltPx + MACHINE_R),
+        centers[N-1].y
+    };
 
-    // 4. Draw Machines (Casting correctly and mapping coordinates)
-    if (pipeline.size() >= 13) {
-        DrawMachineNode(drawList, ImVec2(origin.x + 260, origin.y + 100), pipeline[0], "도우 스트레쳐", "🫓", 0);
-        DrawMachineNode(drawList, ImVec2(origin.x + 420, origin.y + 100), pipeline[2], "소스 스프레더", "🥫", 2);
-        DrawMachineNode(drawList, ImVec2(origin.x + 580, origin.y + 100), pipeline[4], "치즈 스프레더", "🧀", 4);
-        DrawMachineNode(drawList, ImVec2(origin.x + 580, origin.y + 260), pipeline[6], "커터", "🔪", 6);
-        DrawMachineNode(drawList, ImVec2(origin.x + 420, origin.y + 260), pipeline[8], "오븐", "🔥", 8);
-        DrawMachineNode(drawList, ImVec2(origin.x + 260, origin.y + 260), pipeline[10], "토핑 어플라이어", "🍕", 10);
-        DrawMachineNode(drawList, ImVec2(origin.x + 260, origin.y + 420), pipeline[12], "페키져", "📦", 12);
+    // Compute canvas size to fit layout
+    float canvasW = 880.0f;
+    float canvasH = std::max(510.0f, PAD_Y + (float)((N-1)/MACHINES_PER_ROW) * ROW_DY + MACHINE_R + PAD_Y);
+
+    ImGui::BeginChild("FactoryCanvasChild", ImVec2(900, canvasH + 20.0f), true,
+                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove);
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImVec2 origin        = ImGui::GetCursorScreenPos();
+
+    // Background + grid
+    drawList->AddRectFilled(origin, ImVec2(origin.x + canvasW, origin.y + canvasH), ImColor(30, 34, 40), 12.0f);
+    for (float g = 40.0f; g < canvasW; g += 40.0f)
+        drawList->AddLine(ImVec2(origin.x + g, origin.y), ImVec2(origin.x + g, origin.y + canvasH), ImColor(40, 45, 50, 100), 1.0f);
+    for (float g = 40.0f; g < canvasH; g += 40.0f)
+        drawList->AddLine(ImVec2(origin.x, origin.y + g), ImVec2(origin.x + canvasW, origin.y + g), ImColor(40, 45, 50, 100), 1.0f);
+
+    // Offset all positions by canvas origin
+    auto O = [&](ImVec2 p) { return ImVec2(origin.x + p.x, origin.y + p.y); };
+
+    // ── Draw belts ──────────────────────────────────────────────────────────
+    // Spawner → machine 0
+    DrawConveyorBelt(drawList, O({spawnerCenter.x + MACHINE_R, spawnerCenter.y}),
+                               O({centers[0].x - MACHINE_R,   centers[0].y}));
+
+    // Machine-to-machine belts
+    for (int i = 0; i + 1 < N; i++) {
+        if (!machList[i].nextBelt) continue;
+        int  row       = i / MACHINES_PER_ROW;
+        bool evenRow   = (row % 2 == 0);
+        int  rowDir    = evenRow ? 1 : -1;
+        bool lastInRow = ((i % MACHINES_PER_ROW) == MACHINES_PER_ROW - 1);
+        ImVec2 cA = centers[i], cB = centers[i + 1];
+
+        if (lastInRow) {
+            // U-turn: horizontal stub → vertical → horizontal stub (reverse)
+            float xTurn = cA.x + rowDir * (MACHINE_R + UTURN_DX);
+            DrawConveyorBelt(drawList, O({cA.x + rowDir * MACHINE_R, cA.y}), O({xTurn, cA.y}), !evenRow);
+            DrawConveyorBelt(drawList, O({xTurn, cA.y}),                      O({xTurn, cB.y}));
+            DrawConveyorBelt(drawList, O({xTurn, cB.y}), O({cB.x + rowDir * MACHINE_R, cB.y}), evenRow);
+        } else {
+            ImVec2 bStart = {cA.x + rowDir * MACHINE_R, cA.y};
+            ImVec2 bEnd   = {cB.x - rowDir * MACHINE_R, cB.y};
+            DrawConveyorBelt(drawList, O(bStart), O(bEnd), !evenRow);
+        }
     }
-    
-    // Small guide text inside Canvas
-    drawList->AddText(ImGui::GetFont(), 13.0f, ImVec2(origin.x + 15, origin.y + 485), 
-                      ImColor(150, 160, 170), "💡 좌클릭: 기계 세부 설정 변경 | 우클릭: 전원(ON/OFF) 빠르게 토글");
+
+    // Last machine → counter
+    DrawConveyorBelt(drawList,
+        O({centers[N-1].x + lastDir * MACHINE_R, centers[N-1].y}),
+        O({counterCenter.x - lastDir * MACHINE_R, counterCenter.y}),
+        lastDir < 0);
+
+    // ── Draw pizzas on belts ─────────────────────────────────────────────────
+    auto pizzaOnLine = [](int slot, int len, ImVec2 a, ImVec2 b) -> ImVec2 {
+        float t = (slot + 0.5f) / len;
+        return {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t};
+    };
+    auto pizzaOnUturn = [&](int slot, int len, ImVec2 cA, ImVec2 cB, int dir) -> ImVec2 {
+        float t      = (slot + 0.5f) / len;
+        float xTurn  = cA.x + dir * (MACHINE_R + UTURN_DX);
+        float seg1   = UTURN_DX, seg2 = fabsf(cB.y - cA.y), seg3 = UTURN_DX;
+        float dist   = t * (seg1 + seg2 + seg3);
+        if (dist < seg1)          return {cA.x + dir * (MACHINE_R + dist),       cA.y};
+        if (dist < seg1 + seg2)   return {xTurn,                                  cA.y + (dist - seg1)};
+        return {xTurn - dir * (dist - seg1 - seg2), cB.y};
+    };
+
+    for (int i = 0; i < N; i++) {
+        if (!machList[i].nextBelt) continue;
+        const auto& slots  = machList[i].nextBelt->getBelt();
+        int         len    = (int)slots.size();
+        int         row    = i / MACHINES_PER_ROW;
+        bool        evenRow = (row % 2 == 0);
+        int         rowDir  = evenRow ? 1 : -1;
+        bool        lastInRow = ((i % MACHINES_PER_ROW) == MACHINES_PER_ROW - 1) && (i + 1 < N);
+        bool        isLast    = (i == N - 1);
+
+        for (int s = 0; s < len; s++) {
+            if (!slots[s]) continue;
+            ImVec2 pos;
+            if (isLast) {
+                pos = O(pizzaOnLine(s, len,
+                    {centers[i].x + lastDir * MACHINE_R, centers[i].y},
+                    {counterCenter.x - lastDir * MACHINE_R, counterCenter.y}));
+            } else if (lastInRow) {
+                pos = O(pizzaOnUturn(s, len, centers[i], centers[i + 1], rowDir));
+            } else {
+                pos = O(pizzaOnLine(s, len,
+                    {centers[i].x + rowDir * MACHINE_R,     centers[i].y},
+                    {centers[i+1].x - rowDir * MACHINE_R,   centers[i+1].y}));
+            }
+            DrawPizza(drawList, pos, slots[s]);
+        }
+    }
+
+    // ── Draw spawner & counter ───────────────────────────────────────────────
+    DrawDoughStorageVisual(drawList, O(spawnerCenter));
+    DrawCounterVisual(drawList, O(counterCenter), m_model);
+
+    // ── Draw machines ────────────────────────────────────────────────────────
+    for (int i = 0; i < N; i++) {
+        const char* nameKo = GetMachineNameKo(machList[i].machine);
+        const char* icon   = GetMachineIcon(machList[i].machine);
+        if (DrawMachineNode(drawList, O(centers[i]), machList[i].machine, nameKo, icon, machList[i].pipeIdx)) {
+            if (m_selectedMachineIdx == machList[i].pipeIdx) {
+                m_selectedMachineIdx = -1;
+            } else {
+                m_selectedMachineIdx = machList[i].pipeIdx;
+                m_settingsPanelPos   = ImVec2(O(centers[i]).x + 52, O(centers[i]).y - 50);
+            }
+        }
+    }
+
+    drawList->AddText(ImGui::GetFont(), 13.0f, ImVec2(origin.x + 15, origin.y + canvasH - 20),
+                      ImColor(150, 160, 170), "💡 좌클릭: 기계 설정 | 우클릭: 전원 ON/OFF");
 
     ImGui::EndChild();
-    
+
+    // 머신 설정 패널 (선택된 머신이 있을 때만)
+    RenderMachineSettingsPanel();
+
     ImGui::SameLine();
 
     // -------------------------------------------------------------------------
@@ -562,4 +587,176 @@ void DashboardView::Render()
     ImGui::EndChild();
 
     ImGui::End();
+}
+
+void DashboardView::RenderMachineSettingsPanel()
+{
+    if (m_selectedMachineIdx < 0) return;
+
+    const auto& pipeline = m_model->getPipeline();
+    if (m_selectedMachineIdx >= (int)pipeline.size()) return;
+
+    Machine* machine = pipeline[m_selectedMachineIdx];
+    if (!machine) return;
+
+    // 머신 인덱스로 이름 찾기
+    const char* nameKo = GetMachineNameKo(machine);
+
+    ImGui::SetNextWindowPos(m_settingsPanelPos, ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(200, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.95f);
+
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar
+                           | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 12.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.88f, 0.88f, 0.90f, 0.97f));
+
+    if (ImGui::Begin("##MachineSettings", nullptr, flags)) {
+
+        // 타이틀 버튼
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.78f, 0.78f, 0.82f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.78f, 0.78f, 0.82f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.78f, 0.78f, 0.82f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+        ImGui::SetNextItemWidth(-1);
+        ImGui::Button("머신 설정", ImVec2(-1, 0));
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(4);
+
+        ImGui::Spacing();
+
+        // 듀라빌리티 라벨 + 바
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.05f, 0.05f, 0.05f, 1.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 4));
+
+        ImGui::Button("듀라빌리티", ImVec2(-1, 0));
+        ImGui::PopStyleVar(2);
+        ImGui::PopStyleColor();
+
+        float durPct = machine->getDurability() / machine->getMaxDurability();
+        if (durPct < 0.0f) durPct = 0.0f;
+        if (durPct > 1.0f) durPct = 1.0f;
+        ImVec4 barColor = (durPct > 0.6f) ? ImVec4(0.15f, 0.85f, 0.25f, 1.0f)
+                        : (durPct > 0.3f) ? ImVec4(0.95f, 0.75f, 0.05f, 1.0f)
+                                          : ImVec4(0.9f, 0.15f, 0.15f, 1.0f);
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, barColor);
+        ImGui::ProgressBar(durPct, ImVec2(-1, 10), "");
+        ImGui::PopStyleColor();
+
+        ImGui::Spacing();
+
+        // Speed 설정
+        {
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.95f, 0.95f, 0.97f, 1.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
+            ImGui::BeginChild("##speedBox", ImVec2(-1, 60), true, ImGuiWindowFlags_NoScrollbar);
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+            ImGui::Text("SPEED");
+            float spd = machine->getSpeed();
+            ImGui::SetNextItemWidth(80);
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+            if (ImGui::InputFloat("##spd", &spd, 0.5f, 1.0f, "%.1f")) {
+                if (spd < 0.1f) spd = 0.1f;
+                if (spd > 10.0f) spd = 10.0f;
+                machine->setSpeed(spd);
+            }
+            ImGui::PopStyleColor(3);
+            ImGui::EndChild();
+            ImGui::PopStyleVar();
+        }
+
+        ImGui::Spacing();
+
+        // Capacity / Length 설정
+        {
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.95f, 0.95f, 0.97f, 1.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
+            ImGui::BeginChild("##capBox", ImVec2(-1, 60), true, ImGuiWindowFlags_NoScrollbar);
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+
+            if (auto* ncm = dynamic_cast<NonConveyorMachine*>(machine)) {
+                ImGui::Text("CAPACITY");
+                int cap = ncm->getCapacity();
+                ImGui::SetNextItemWidth(80);
+                ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+                if (ImGui::InputInt("##cap", &cap)) {
+                    if (cap < 1) cap = 1;
+                    if (cap > 8) cap = 8;
+                    ncm->setCapacity(cap);
+                }
+                ImGui::PopStyleColor();
+            } else if (auto* cm = dynamic_cast<ConveyorMachine*>(machine)) {
+                ImGui::Text("LENGTH");
+                ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+                ImGui::Text("%d slots", cm->getLength());
+                ImGui::PopStyleColor();
+            }
+
+            ImGui::PopStyleColor(2);
+            ImGui::EndChild();
+            ImGui::PopStyleVar();
+        }
+
+        // 머신별 추가 설정
+        if (auto* stretcher = dynamic_cast<DoughStretcher*>(machine)) {
+            ImGui::Spacing();
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+            ImGui::Text("도우 크기:");
+            int sz = (int)stretcher->getTargetSize();
+            if (ImGui::RadioButton("S##sz", sz == 0)) stretcher->setTargetSize(PizzaSize::SMALL);
+            ImGui::SameLine();
+            if (ImGui::RadioButton("M##sz", sz == 1)) stretcher->setTargetSize(PizzaSize::MEDIUM);
+            ImGui::SameLine();
+            if (ImGui::RadioButton("L##sz", sz == 2)) stretcher->setTargetSize(PizzaSize::LARGE);
+            ImGui::PopStyleColor();
+        } else if (auto* oven = dynamic_cast<Oven*>(machine)) {
+            ImGui::Spacing();
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+            float temp = oven->getTemperature();
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::SliderFloat("##temp", &temp, 150.0f, 350.0f, "%.0f°C")) {
+                oven->setTemperature(temp);
+            }
+            ImGui::PopStyleColor();
+        } else if (auto* cutter = dynamic_cast<Cutter*>(machine)) {
+            ImGui::Spacing();
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+            int slices = cutter->getSliceCount();
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::SliderInt("##slices", &slices, 4, 12, "%d 조각")) {
+                if (slices % 2 != 0) slices++;
+                cutter->setSliceCount(slices);
+            }
+            ImGui::PopStyleColor();
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // 브레이크 다운 버튼
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.85f, 0.85f, 0.88f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.95f, 0.70f, 0.70f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+        if (ImGui::Button("브레이크 다운", ImVec2(-1, 0))) {
+            m_controller->forceBreakMachine(m_selectedMachineIdx);
+        }
+        ImGui::Spacing();
+        // 즉시 리페어 버튼
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.65f, 0.90f, 0.70f, 1.0f));
+        if (ImGui::Button("즉시 리페어", ImVec2(-1, 0))) {
+            m_controller->instantRepairMachine(m_selectedMachineIdx);
+        }
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(4);
+    }
+    ImGui::End();
+
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar(2);
 }

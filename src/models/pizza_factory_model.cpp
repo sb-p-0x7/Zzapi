@@ -12,44 +12,32 @@ PizzaFactoryModel::PizzaFactoryModel() {
 
 PizzaFactoryModel::~PizzaFactoryModel() {
   delete orderManager;
-  for (Machine* m : pipeline) {
+  for (Machine *m : pipeline) {
     delete m;
   }
-  for (Pizza* p : finishedPizzas) {
+  for (Pizza *p : finishedPizzas) {
     delete p;
   }
-  for (Pizza* p : lostPizzas) {
+  for (Pizza *p : lostPizzas) {
     delete p;
   }
 }
 
 void PizzaFactoryModel::InitDefaultPipeline() {
-  // 1. 도우 스트레쳐
-  pipeline.push_back(new DoughStretcher());
-  // 2. 컨베이어 벨트
-  pipeline.push_back(new ConveyorBelt());
-  // 3. 소스 스프레더
-  pipeline.push_back(new SauceSpreader());
-  // 4. 컨베이어 벨트
-  pipeline.push_back(new ConveyorBelt());
-  // 5. 치즈 스프레더
-  pipeline.push_back(new CheeseSpreader());
-  // 6. 컨베이어 벨트
-  pipeline.push_back(new ConveyorBelt());
-  // 7. 커터
-  pipeline.push_back(new Cutter());
-  // 8. 컨베이어 벨트
-  pipeline.push_back(new ConveyorBelt());
-  // 9. 오븐
-  pipeline.push_back(new Oven());
-  // 10. 컨베이어 벨트
-  pipeline.push_back(new ConveyorBelt());
-  // 11. 토핑 어플라이어
-  pipeline.push_back(new ToppingApplier());
-  // 12. 컨베이어 벨트
-  pipeline.push_back(new ConveyorBelt());
-  // 13. 포장기
-  pipeline.push_back(new PackagingMachine());
-  // 14. 컨베이어 벨트
-  pipeline.push_back(new ConveyorBelt());
+  // 파이프라인 순서 정의 — 여기만 수정하면 됩니다.
+  std::vector<Machine *> sequence = {
+      new DoughStretcher(),
+      new SauceSpreader(),
+      new CheeseSpreader(),
+      new ToppingApplier(1.0f, 100.0f, 1, {ToppingType::PEPPERONI}),
+      new Oven(),
+      new Cutter(),
+      new PackagingMachine(),
+  };
+
+  // 머신 사이사이에 컨베이어 벨트를 자동으로 삽입
+  for (Machine *machine : sequence) {
+    pipeline.push_back(machine);
+    pipeline.push_back(new ConveyorBelt());
+  }
 }
