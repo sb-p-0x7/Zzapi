@@ -1,77 +1,68 @@
 #pragma once
-
+// =============================================================================
+// order.h — 주문/경제 (게임 레이어)
+//
+//   Order      : 손님 한 명의 요구사항 + 마감시간 + 보상 + 상태
+//   OrderBook  : 활성/완료/실패 주문 관리. 주기적 생성, 마감 처리, 완성품 매칭.
+//
+//   * 지금은 모델만 완성해 두고, Factory가 완성품 출고 시 tryFulfill()을 호출.
+//   * 4단계(돈→업그레이드)는 OrderBook 보상 위에 얹어 확장.
+// =============================================================================
 #include "pizza.h"
+#include "../bridge.h"
+#include <vector>
+#include <random>
 
-enum class OrderStatus {
-    PENDING,
-    COMPLETED,
-    FAILED
-};
+enum class OrderStatus { PENDING, COMPLETED, FAILED };
 
 class Order {
 private:
-    int id;
-    PizzaSize requiredSize;
-    bool requiresSauce;
-    bool requiresCheese;
-    bool requiresBake;
-    bool requiresCut;
-    bool requiresTopping;
-    
-    int timeLeft; // 프레임 단위의 남은 시간
-    int reward;
-    OrderStatus status;
+    int        m_id;
+    PizzaSize  m_size;
+    bool       m_needSauce;
+    bool       m_needCheese;
+    bool       m_needTopping;
+    bool       m_needCut;
+    int        m_ticksLeft;
+    int        m_reward;
+    OrderStatus m_status = OrderStatus::PENDING;
 
 public:
-    Order(int id, PizzaSize size, bool sauce, bool cheese, bool bake, bool cut, bool topping, int time, int reward);
+    Order(int id, PizzaSize size, bool sauce, bool cheese, bool topping,
+          bool cut, int ticks, int reward)
+        : m_id(id), m_size(size), m_needSauce(sauce), m_needCheese(cheese),
+          m_needTopping(topping), m_needCut(cut), m_ticksLeft(ticks), m_reward(reward) {}
 
-    int getId() const;
-    PizzaSize getRequiredSize() const;
-    bool getRequiresSauce() const;
-    bool getRequiresCheese() const;
-    bool getRequiresBake() const;
-    bool getRequiresCut() const;
-    bool getRequiresTopping() const;
-    
-    int getTimeLeft() const;
-    int getReward() const;
-    OrderStatus getStatus() const;
+    int         id()        const { return m_id; }
+    int         reward()    const { return m_reward; }
+    int         ticksLeft() const { return m_ticksLeft; }
+    OrderStatus status()    const { return m_status; }
+    void        setStatus(OrderStatus s) { m_status = s; }
 
-    void setStatus(OrderStatus newStatus);
-    
-    // 매 프레임 호출, timeLeft 감소. 시간이 0이 되면 false 반환(실패)
-    bool tick();
-    
-    // 피자가 이 주문의 조건에 맞는지 확인
-    bool checkMatch(Pizza* pizza) const;
+    bool tickExpire();                  // 마감 카운트다운. 0이 되면 true(실패)
+    bool matches(const Pizza& p) const; // 완성품이 요구사항을 충족하나
+    std::string desc() const;           // 스냅샷/로그용 요약
 };
 
-class OrderManager {
+class OrderBook {
 private:
-    std::vector<Order*> activeOrders;
-    std::vector<Order*> completedOrders;
-    std::vector<Order*> failedOrders;
-    
-    int nextOrderId;
-    int tickCount;
+    std::vector<Order> m_active;
+    int m_nextId      = 1;
+    int m_genEvery    = 120;    // N틱마다 새 주문
+    int m_genTimer    = 0;
+    int m_maxActive   = 5;
+    int m_completed   = 0;
+    int m_failed      = 0;
+
+    static std::mt19937& rng();
+    void generate();
 
 public:
-    OrderManager();
-    ~OrderManager();
-
-    // 매 프레임마다 호출: 새 주문 생성 및 남은 시간 처리
-    void tick();
-
-    // 특정 피자가 현재 주문들을 만족하는지 검사
-    // 만족하면 true를 반환하고, 해당 주문을 completedOrders로 이동
-    bool verifyPizza(Pizza* pizza);
-
-    // Getters
-    const std::vector<Order*>& getActiveOrders() const;
-    const std::vector<Order*>& getCompletedOrders() const;
-    const std::vector<Order*>& getFailedOrders() const;
+    void update(int tick);              // 주문 생성 + 마감 처리
+    int  tryFulfill(const Pizza& p);    // 매칭되면 reward 반환, 없으면 0
     void reset();
-    
-private:
-    void generateRandomOrder();
+
+    int  completed() const { return m_completed; }
+    int  failed()    const { return m_failed; }
+    void fillSnap(std::vector<OrderSnap>& out) const;   // bridge.h 스냅샷 채우기
 };
