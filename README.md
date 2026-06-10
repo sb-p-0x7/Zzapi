@@ -198,6 +198,6 @@ the simulation without opening the GUI.
 - **Fonts:** the bundled fonts cover Latin/Korean + BMP symbols (▶ ⏸ ↻ ⚠). Astral-plane
   colour emoji (🍕, 🔥…) are intentionally avoided because the default ImGui rasterizer
   cannot render them.
-- **Balance:** the Dough Stretcher currently fixes pizza size to **Medium**, so orders asking
-  for Small/Large can't be fulfilled yet — most pizzas ship as "no order". Tuning the
-  stretcher/order matching is a backend gameplay task, tracked separately.
+- **Balance:** the factory always produces **Medium** pizzas, so orders are generated at
+  Medium too and are fulfillable (shipping a matching pizza clears the oldest order).
+  Variable-size production with size-based order matching is a planned gameplay extension.

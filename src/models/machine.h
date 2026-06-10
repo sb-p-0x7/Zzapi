@@ -134,7 +134,7 @@ class DoughStretcher : public NonConveyorMachine {
 protected:
     Pizza* transform(Pizza* p) override;
 public:
-    DoughStretcher(int t = 3, PizzaSize target = PizzaSize::MEDIUM)
+    DoughStretcher(int t = 4, PizzaSize target = PizzaSize::MEDIUM)
         : NonConveyorMachine("DoughStretcher", t, 100.f), m_target(target) {}
     std::string displayName() const override { return "Dough Stretcher"; }
     std::string icon()        const override { return "DOUGH"; }
@@ -145,7 +145,7 @@ class SauceSpreader : public NonConveyorMachine {
 protected:
     Pizza* transform(Pizza* p) override;
 public:
-    SauceSpreader(int t = 2) : NonConveyorMachine("SauceSpreader", t, 100.f) {}
+    SauceSpreader(int t = 3) : NonConveyorMachine("SauceSpreader", t, 100.f) {}
     std::string displayName() const override { return "Sauce Spreader"; }
     std::string icon()        const override { return "SAUCE"; }
     std::string getInfo()     const override { return "Sauce Spreader"; }
@@ -155,7 +155,7 @@ class CheeseSpreader : public NonConveyorMachine {
 protected:
     Pizza* transform(Pizza* p) override;
 public:
-    CheeseSpreader(int t = 2) : NonConveyorMachine("CheeseSpreader", t, 100.f) {}
+    CheeseSpreader(int t = 3) : NonConveyorMachine("CheeseSpreader", t, 100.f) {}
     std::string displayName() const override { return "Cheese Spreader"; }
     std::string icon()        const override { return "CHEESE"; }
     std::string getInfo()     const override { return "Cheese Spreader"; }
@@ -175,7 +175,7 @@ class Oven : public NonConveyorMachine {
 protected:
     Pizza* transform(Pizza* p) override;
 public:
-    Oven(int t = 8) : NonConveyorMachine("Oven", t, 100.f) {}
+    Oven(int t = 6) : NonConveyorMachine("Oven", t, 100.f) {}
     std::string displayName() const override { return "Oven"; }
     std::string icon()        const override { return "OVEN"; }
     std::string getInfo()     const override { return "Oven"; }
@@ -185,7 +185,7 @@ class Cutter : public NonConveyorMachine {
 protected:
     Pizza* transform(Pizza* p) override;
 public:
-    Cutter(int t = 2) : NonConveyorMachine("Cutter", t, 100.f) {}
+    Cutter(int t = 3) : NonConveyorMachine("Cutter", t, 100.f) {}
     std::string displayName() const override { return "Cutter"; }
     std::string icon()        const override { return "CUT"; }
     std::string getInfo()     const override { return "Cutter"; }
@@ -195,7 +195,7 @@ class PackagingMachine : public NonConveyorMachine {
 protected:
     Pizza* transform(Pizza* p) override;   // RawDough → BoxedPizza 교체
 public:
-    PackagingMachine(int t = 3) : NonConveyorMachine("PackagingMachine", t, 100.f) {}
+    PackagingMachine(int t = 4) : NonConveyorMachine("PackagingMachine", t, 100.f) {}
     std::string displayName() const override { return "Packager"; }
     std::string icon()        const override { return "BOX"; }
     std::string getInfo()     const override { return "Packager"; }
@@ -203,7 +203,7 @@ public:
 
 class ConveyorBelt : public ConveyorMachine {
 public:
-    ConveyorBelt(int length = 4, float moveSpeed = 0.34f)
+    ConveyorBelt(int length = 3, float moveSpeed = 0.5f)
         : ConveyorMachine("ConveyorBelt", 100.f, length, moveSpeed) {}
     std::string displayName() const override { return "Conveyor"; }
     std::string icon()        const override { return "BELT"; }
