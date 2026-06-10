@@ -88,12 +88,19 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui_lib)
 
+# MSVC: 소스가 UTF-8(BOM 없음)이므로 명시하지 않으면 시스템 코드페이지(CP949 등)로
+# 잘못 해석돼 한글/기호 리터럴이 깨지거나 컴파일 에러가 난다. /utf-8 로 소스·실행
+# 인코딩을 모두 UTF-8 로 고정한다. (MinGW/Clang/GCC 는 기본 UTF-8 라 불필요.)
+if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /utf-8)
+endif()
+
 # =============================================================================
 # 빌드 후 안내 메시지
 # =============================================================================
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E echo "========================================="
-    COMMAND ${CMAKE_COMMAND} -E echo " PizzaFactory 빌드 완료!"
-    COMMAND ${CMAKE_COMMAND} -E echo " 실행: $<TARGET_FILE:${PROJECT_NAME}>"
+    COMMAND ${CMAKE_COMMAND} -E echo " PizzaFactory build complete!"
+    COMMAND ${CMAKE_COMMAND} -E echo " Run: $<TARGET_FILE:${PROJECT_NAME}>"
     COMMAND ${CMAKE_COMMAND} -E echo "========================================="
 )

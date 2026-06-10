@@ -47,6 +47,8 @@ struct MachineSnap {
     float        healthPct    = 1.0f;         // 0..1 → ProgressBar
     float        progressPct  = 0.0f;         // 0..1 → ProgressBar
     int          processTicks = 0;            // Inspector 표시용
+    int          queueDepth   = 0;            // Inspector: 머신 안 대기물 수
+    int          outputCount  = 0;            // Inspector: 누적 산출 개수
     bool         hasPizzaInside = false;
     PizzaView    pizzaInside;
     bool         isConveyor   = false;
@@ -89,4 +91,5 @@ struct FactoryCmd {
     int  selectedMachine = -1;
     bool forceBreak    = false;
     bool instantRepair = false;
+    bool clearLog      = false;
 };

@@ -30,7 +30,7 @@ int main() {
     for (auto& n : s.scenarioNames) printf("[%s] ", n.c_str());
     printf("\n--- active orders ---\n");
     for (auto& o : s.orders)
-        printf("  %s  남은틱=%d  보상=$%d\n", o.desc.c_str(), o.ticksLeft, o.reward);
+        printf("  %s  ticksLeft=%d  reward=$%d\n", o.desc.c_str(), o.ticksLeft, o.reward);
 
     printf("--- last events ---\n");
     int from = (int)s.eventLog.size() - 8; if (from < 0) from = 0;

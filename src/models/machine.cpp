@@ -25,7 +25,7 @@ void Machine::instantRepair() {
 
 void Machine::resetState() {
     m_broken = false; m_powered = true; m_repairTimer = 0;
-    m_durability = m_maxDurability;
+    m_durability = m_maxDurability; m_produced = 0;
 }
 
 void Machine::wear(float amount) {
@@ -55,6 +55,8 @@ void Machine::fillCommonSnap(MachineSnap& s) const {
     s.state        = state();
     s.healthPct    = healthPct();
     s.processTicks = m_processTicks;
+    s.queueDepth   = wipCount();    // 머신 안 대기물 수
+    s.outputCount  = m_produced;    // 누적 산출
 }
 
 // =============================================================================
@@ -72,7 +74,9 @@ void NonConveyorMachine::update(int /*tick*/) {
 }
 
 Pizza* NonConveyorMachine::takeOutput() {
-    Pizza* p = m_done; m_done = nullptr; return p;
+    Pizza* p = m_done; m_done = nullptr;
+    if (p) ++m_produced;
+    return p;
 }
 
 int NonConveyorMachine::wipCount() const {
@@ -113,7 +117,9 @@ void ConveyorMachine::update(int /*tick*/) {
 }
 
 Pizza* ConveyorMachine::takeOutput() {
-    Pizza* p = m_belt.back(); m_belt.back() = nullptr; return p;
+    Pizza* p = m_belt.back(); m_belt.back() = nullptr;
+    if (p) ++m_produced;
+    return p;
 }
 
 int ConveyorMachine::wipCount() const {

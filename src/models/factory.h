@@ -26,13 +26,14 @@ public:
     // ── controller가 호출하는 제어 API ──
     void step();                  // 정확히 한 틱 진행
     void update();                // running이면 speed 틱 진행 (매 프레임 호출용)
-    void start()  { m_running = true;  log("시작"); }
-    void pause()  { m_running = false; log("일시정지"); }
+    void start()  { m_running = true;  log("Started"); }
+    void pause()  { m_running = false; log("Paused"); }
     void reset()  { loadScenario(m_scenario); }
     void setSpeed(int s) { if (s >= 1 && s <= 5) m_speed = s; }
     void setScenario(int idx);    // 바뀌었을 때만 로드
     void forceBreak(int idx);
     void repair(int idx);
+    void clearLog() { m_log.clear(); }
 
     // ── Scenario가 사용하는 config API ──
     void setAllBreakdownProb(float p) { for (Machine* m : m_pipeline) m->setBreakdownProb(p); }
