@@ -12,15 +12,20 @@ void Factory::clear() {
 
 void Factory::build() {
     clear();
-    // 파이프라인: 도우 → [벨트] → 소스 → 치즈 → 토핑 → 오븐 → 커터 → [벨트] → 포장
+    // 파이프라인: 모든 논컨베이어 머신 사이에 컨베이어 벨트를 둔다.
+    //   도우 →[벨트]→ 소스 →[벨트]→ 치즈 →[벨트]→ 토핑 →[벨트]→ 오븐 →[벨트]→ 커터 →[벨트]→ 포장
     m_pipeline.push_back(new DoughStretcher());
-    m_pipeline.push_back(new ConveyorBelt(4, 0.34f));
+    m_pipeline.push_back(new ConveyorBelt());
     m_pipeline.push_back(new SauceSpreader());
+    m_pipeline.push_back(new ConveyorBelt());
     m_pipeline.push_back(new CheeseSpreader());
+    m_pipeline.push_back(new ConveyorBelt());
     m_pipeline.push_back(new ToppingApplier());
+    m_pipeline.push_back(new ConveyorBelt());
     m_pipeline.push_back(new Oven());
+    m_pipeline.push_back(new ConveyorBelt());
     m_pipeline.push_back(new Cutter());
-    m_pipeline.push_back(new ConveyorBelt(4, 0.34f));
+    m_pipeline.push_back(new ConveyorBelt());
     m_pipeline.push_back(new PackagingMachine());
     m_wasBroken.assign(m_pipeline.size(), false);
 }

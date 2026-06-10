@@ -39,9 +39,10 @@ std::mt19937& OrderBook::rng() {
 }
 
 void OrderBook::generate() {
-    std::uniform_int_distribution<int> sizeD(0, 2);
     std::bernoulli_distribution        coin(0.5);
-    PizzaSize size  = static_cast<PizzaSize>(sizeD(rng()));
+    // 공장은 항상 Medium 피자를 생산하므로 주문도 Medium 으로 맞춰 충족 가능하게 한다.
+    // (사이즈 가변 생산은 추후 게임플레이 확장 과제)
+    PizzaSize size  = PizzaSize::MEDIUM;
     bool sauce      = coin(rng());
     bool cheese     = coin(rng());
     bool topping    = coin(rng());

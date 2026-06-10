@@ -2,7 +2,8 @@
 #include "../models/factory.h"
 
 // 1배속 기준 초당 논리 틱 수. speed(1..5)를 곱해 실제 진행 속도가 된다.
-static constexpr float BASE_TPS = 8.0f;
+// 피자가 머신/벨트에 머무는 시간이 눈에 보이도록 느린 기본 속도를 쓴다.
+static constexpr float BASE_TPS = 4.0f;
 
 void FactoryController::Init(Factory* factory)
 {
