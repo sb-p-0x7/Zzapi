@@ -165,16 +165,16 @@ void DashboardView::RenderControl(const FactorySnap& snap, FactoryCmd& cmd)
     if (snap.running) {
         ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.75f, 0.16f, 0.16f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.90f, 0.22f, 0.22f, 1.0f));
-        if (ImGui::Button(u8"⏸ Pause", ImVec2(120, 0))) cmd.pause = true;
+        if (ImGui::Button("Pause", ImVec2(120, 0))) cmd.pause = true;
     } else {
         ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.15f, 0.62f, 0.25f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.78f, 0.32f, 1.0f));
-        if (ImGui::Button(u8"▶ Start", ImVec2(120, 0))) cmd.start = true;
+        if (ImGui::Button("Start", ImVec2(120, 0))) cmd.start = true;
     }
     ImGui::PopStyleColor(2);
 
     ImGui::SameLine();
-    if (ImGui::Button(u8"↻ Reset", ImVec2(90, 0))) cmd.reset = true;
+    if (ImGui::Button("Reset", ImVec2(90, 0))) cmd.reset = true;
 
     ImGui::SameLine();
     ImGui::SetNextItemWidth(180);
@@ -318,8 +318,10 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
                     m.name.c_str());
 
         if (m.state == MachineState::BROKEN) {
-            ImVec2 ws = ImGui::CalcTextSize(u8"⚠");
-            dl->AddText(ImGui::GetFont(), 24.0f, ImVec2(c.x - ws.x*0.7f, c.y - 18), IM_COL32(255,70,70,255), u8"⚠");
+            // 폰트 비의존 "고장" 표시: 빨간 X 를 선으로 직접 그린다.
+            float k = 11.0f;
+            dl->AddLine(ImVec2(c.x-k, c.y-3-k), ImVec2(c.x+k, c.y-3+k), IM_COL32(255,70,70,255), 3.0f);
+            dl->AddLine(ImVec2(c.x-k, c.y-3+k), ImVec2(c.x+k, c.y-3-k), IM_COL32(255,70,70,255), 3.0f);
         } else if (m.hasPizzaInside) {
             DrawPizza(dl, ImVec2(c.x, c.y - 3), m.pizzaInside);
         } else {
@@ -335,11 +337,11 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
     // ── 입고 / 출고 표식 ──
     if (S > 0) {
         ImVec2 in = O(stCenter(0));
-        dl->AddText(ImVec2(in.x - nodeR - 52, in.y - 8), IM_COL32(150, 200, 150, 255), u8"IN ▸");
+        dl->AddText(ImVec2(in.x - nodeR - 34, in.y - 8), IM_COL32(150, 200, 150, 255), "IN");
         ImVec2 oc = O(stCenter(S - 1));
         int dL = stDir(S - 1);
-        char buf[48]; std::snprintf(buf, sizeof(buf), u8"▸ OUT %d", snap.finishedGoods);
-        float ox = (dL > 0) ? (oc.x + nodeR + 6) : (oc.x - nodeR - 70);
+        char buf[48]; std::snprintf(buf, sizeof(buf), "OUT %d", snap.finishedGoods);
+        float ox = (dL > 0) ? (oc.x + nodeR + 6) : (oc.x - nodeR - 64);
         dl->AddText(ImVec2(ox, oc.y - 8), IM_COL32(255, 210, 120, 255), buf);
     }
 
@@ -513,7 +515,7 @@ void DashboardView::RenderOrders(const FactorySnap& snap, FactoryCmd& cmd)
                  : (frac > 0.3f) ? IM_COL32(241,196,15,255)
                                  : IM_COL32(231,76,60,255);
         ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImColor(bc).Value);
-        char ov[32]; std::snprintf(ov, sizeof(ov), u8"⌛ %d", o.ticksLeft);
+        char ov[32]; std::snprintf(ov, sizeof(ov), "%d ticks", o.ticksLeft);
         ImGui::ProgressBar(frac, ImVec2(-1, 14), ov);
         ImGui::PopStyleColor();
 
