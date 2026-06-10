@@ -24,7 +24,7 @@ public:
 
 class FreePlay : public Scenario {
 public:
-    std::string name() const override { return "자유 플레이"; }
+    std::string name() const override { return "Free Play"; }
     void        apply(Factory& f) const override;
 };
 

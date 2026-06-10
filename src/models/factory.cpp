@@ -38,7 +38,7 @@ void Factory::loadScenario(int idx) {
 
     auto sc = makeScenario(idx);
     sc->apply(*this);                 // 머신 파라미터 세팅 (config API 경유)
-    log(std::string("시나리오 로드: ") + sc->name());
+    log(std::string("Scenario loaded: ") + sc->name());
 }
 
 void Factory::setScenario(int idx) {
@@ -51,13 +51,13 @@ void Factory::setScenario(int idx) {
 void Factory::forceBreak(int idx) {
     if (idx < 0 || idx >= (int)m_pipeline.size()) return;
     m_pipeline[idx]->forceBreak();
-    log(m_pipeline[idx]->displayName() + " 강제 고장");
+    log(m_pipeline[idx]->displayName() + " force-broken");
 }
 
 void Factory::repair(int idx) {
     if (idx < 0 || idx >= (int)m_pipeline.size()) return;
     m_pipeline[idx]->instantRepair();
-    log(m_pipeline[idx]->displayName() + " 즉시 수리");
+    log(m_pipeline[idx]->displayName() + " instant-repaired");
 }
 
 // =============================================================================
@@ -97,8 +97,8 @@ void Factory::transfer() {
             Pizza* p = m_pipeline[i]->takeOutput();
             ++m_finished;
             int reward = m_orders.tryFulfill(*p);
-            if (reward > 0) { m_money += reward; log(p->getInfo() + " 출고 (+$" + std::to_string(reward) + ")"); }
-            else            { log(p->getInfo() + " 출고 (주문없음)"); }
+            if (reward > 0) { m_money += reward; log(p->getInfo() + " shipped (+$" + std::to_string(reward) + ")"); }
+            else            { log(p->getInfo() + " shipped (no order)"); }
             delete p;
         } else if (m_pipeline[i + 1]->canAccept()) {
             m_pipeline[i + 1]->accept(m_pipeline[i]->takeOutput());
@@ -112,7 +112,7 @@ void Factory::detectBreakdowns() {
         bool now = m_pipeline[i]->isBroken();
         if (now && !m_wasBroken[i]) {
             ++m_breakdowns;
-            log(m_pipeline[i]->displayName() + " 고장 발생");
+            log(m_pipeline[i]->displayName() + " broke down");
         }
         m_wasBroken[i] = now;
     }

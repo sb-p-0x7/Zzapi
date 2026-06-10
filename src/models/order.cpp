@@ -22,11 +22,11 @@ bool Order::matches(const Pizza& p) const {
 
 std::string Order::desc() const {
     static const char* sz[] = {"S", "M", "L"};
-    std::string s = "주문#" + std::to_string(m_id) + " [" + sz[(int)m_size] + "]";
-    if (m_needSauce)   s += " 소스";
-    if (m_needCheese)  s += " 치즈";
-    if (m_needTopping) s += " 토핑";
-    if (m_needCut)     s += " 자름";
+    std::string s = "Order #" + std::to_string(m_id) + " [" + sz[(int)m_size] + "]";
+    if (m_needSauce)   s += " sauce";
+    if (m_needCheese)  s += " cheese";
+    if (m_needTopping) s += " topping";
+    if (m_needCut)     s += " cut";
     return s;
 }
 
