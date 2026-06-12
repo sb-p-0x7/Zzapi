@@ -1,134 +1,106 @@
 #include "order.h"
+#include <algorithm>
 
-Order::Order(int id, PizzaSize size, bool sauce, bool cheese, bool bake, bool cut, bool topping, int time, int reward)
-    : id(id), requiredSize(size), requiresSauce(sauce), requiresCheese(cheese),
-      requiresBake(bake), requiresCut(cut), requiresTopping(topping),
-      timeLeft(time), reward(reward), status(OrderStatus::PENDING) {}
-
-int Order::getId() const { return id; }
-PizzaSize Order::getRequiredSize() const { return requiredSize; }
-bool Order::getRequiresSauce() const { return requiresSauce; }
-bool Order::getRequiresCheese() const { return requiresCheese; }
-bool Order::getRequiresBake() const { return requiresBake; }
-bool Order::getRequiresCut() const { return requiresCut; }
-bool Order::getRequiresTopping() const { return requiresTopping; }
-int Order::getTimeLeft() const { return timeLeft; }
-int Order::getReward() const { return reward; }
-OrderStatus Order::getStatus() const { return status; }
-
-void Order::setStatus(OrderStatus newStatus) { status = newStatus; }
-
-bool Order::tick() {
-    if (status != OrderStatus::PENDING) return true;
-    
-    if (timeLeft > 0) {
-        timeLeft--;
-        if (timeLeft == 0) {
-            status = OrderStatus::FAILED;
-            return false;
-        }
-    }
-    return true;
-}
-
-bool Order::checkMatch(Pizza* pizza) const {
-    if (!pizza) return false;
-
-    if (pizza->getSize() != requiredSize) return false;
-    // 주문이 요구하는 항목만 확인 (요구하지 않는 항목은 있어도 무관)
-    if (requiresSauce   && !pizza->getHasSauce())   return false;
-    if (requiresCheese  && !pizza->getHasCheese())  return false;
-    if (requiresBake    && !pizza->getIsBaked())     return false;
-    if (requiresCut     && !pizza->getIsCut())       return false;
-    if (requiresTopping && !pizza->getHasTopping())  return false;
-
-    return true;
-}
-
-#include <cstdlib>
-
-OrderManager::OrderManager() : nextOrderId(1), tickCount(0) {}
-
-OrderManager::~OrderManager() {
-    for (Order* o : activeOrders) delete o;
-    for (Order* o : completedOrders) delete o;
-    for (Order* o : failedOrders) delete o;
-}
-
-void OrderManager::tick() {
-    tickCount++;
-    
-    // 예: 600 프레임(약 10초)마다 주문 1개씩 생성
-    if (tickCount % 600 == 0) {
-        generateRandomOrder();
-    }
-    
-    // 활성 주문들 tick 처리
-    for (auto it = activeOrders.begin(); it != activeOrders.end(); ) {
-        Order* order = *it;
-        if (!order->tick()) {
-            // 주문 실패
-            failedOrders.push_back(order);
-            it = activeOrders.erase(it);
-        } else {
-            ++it;
-        }
-    }
-}
-
-bool OrderManager::verifyPizza(Pizza* pizza) {
-    if (!pizza) return false;
-    
-    for (auto it = activeOrders.begin(); it != activeOrders.end(); ++it) {
-        Order* order = *it;
-        if (order->checkMatch(pizza)) {
-            // 조건이 맞는 주문을 찾음
-            order->setStatus(OrderStatus::COMPLETED);
-            completedOrders.push_back(order);
-            activeOrders.erase(it);
-            return true;
-        }
-    }
-    
-    // 맞는 주문이 없음
+// =============================================================================
+// Order
+// =============================================================================
+bool Order::tickExpire() {
+    if (m_status != OrderStatus::PENDING) return false;
+    if (--m_ticksLeft <= 0) { m_status = OrderStatus::FAILED; return true; }
     return false;
 }
 
-void OrderManager::generateRandomOrder() {
-    // 랜덤으로 피자 스펙 결정
-    // DoughStretcher 기본 타겟이 MEDIUM이므로 주문도 MEDIUM으로 고정
-    PizzaSize size = PizzaSize::MEDIUM;
-    
-    bool needsSauce = (rand() % 2) == 1;
-    bool needsCheese = (rand() % 2) == 1;
-    bool needsBake = (rand() % 2) == 1;
-    bool needsCut = (rand() % 2) == 1;
-    bool needsTopping = (rand() % 2) == 1;
-    
-    int timeLimit = 1800 + (rand() % 1200); // 30~50초 정도의 제한시간
-    int reward = 100; // 임시 기본 보상
-    if (needsSauce) reward += 20;
-    if (needsCheese) reward += 30;
-    if (needsBake) reward += 50;
-    if (needsCut) reward += 15;
-    if (needsTopping) reward += 35;
-    if (size == PizzaSize::LARGE) reward += 40;
-    
-    Order* newOrder = new Order(nextOrderId++, size, needsSauce, needsCheese, needsBake, needsCut, needsTopping, timeLimit, reward);
-    activeOrders.push_back(newOrder);
+bool Order::matches(const Pizza& p) const {
+    if (!p.isBoxed())          return false;     // 완성품만
+    if (p.size() != m_size)    return false;
+    if (m_needSauce   && !p.hasSauce())   return false;
+    if (m_needCheese  && !p.hasCheese())  return false;
+    if (m_needTopping && !p.hasTopping()) return false;
+    if (m_needCut     && !p.isCut())      return false;
+    return true;
 }
 
-const std::vector<Order*>& OrderManager::getActiveOrders() const { return activeOrders; }
-const std::vector<Order*>& OrderManager::getCompletedOrders() const { return completedOrders; }
-const std::vector<Order*>& OrderManager::getFailedOrders() const { return failedOrders; }
+std::string Order::desc() const {
+    static const char* sz[] = {"S", "M", "L"};
+    std::string s = "Order #" + std::to_string(m_id) + " [" + sz[(int)m_size] + "]";
+    if (m_needSauce)   s += " sauce";
+    if (m_needCheese)  s += " cheese";
+    if (m_needTopping) s += " topping";
+    if (m_needCut)     s += " cut";
+    return s;
+}
 
-void OrderManager::reset() {
-    for (Order* o : activeOrders) delete o;
-    activeOrders.clear();
-    for (Order* o : completedOrders) delete o;
-    completedOrders.clear();
-    for (Order* o : failedOrders) delete o;
-    failedOrders.clear();
-    nextOrderId = 1;
-    tickCount = 0;
+// =============================================================================
+// OrderBook
+// =============================================================================
+std::mt19937& OrderBook::rng() {
+    static std::mt19937 gen(std::random_device{}());
+    return gen;
+}
+
+void OrderBook::generate() {
+    std::bernoulli_distribution        coin(0.5);
+    // 공장은 항상 Medium 피자를 생산하므로 주문도 Medium 으로 맞춰 충족 가능하게 한다.
+    // (사이즈 가변 생산은 추후 게임플레이 확장 과제)
+    PizzaSize size  = PizzaSize::MEDIUM;
+    bool sauce      = coin(rng());
+    bool cheese     = coin(rng());
+    bool topping    = coin(rng());
+    bool cut        = coin(rng());
+
+    int reward = 10;
+    reward += (sauce ? 3 : 0) + (cheese ? 3 : 0) + (topping ? 5 : 0) + (cut ? 2 : 0);
+    reward += static_cast<int>(size) * 4;
+
+    std::uniform_int_distribution<int> timeD(300, 600);
+    m_active.emplace_back(m_nextId++, size, sauce, cheese, topping, cut,
+                          timeD(rng()), reward);
+}
+
+void OrderBook::update(int /*tick*/) {
+    // 마감 처리
+    for (Order& o : m_active) {
+        if (o.tickExpire()) ++m_failed;
+    }
+    // 완료/실패 주문 제거
+    m_active.erase(
+        std::remove_if(m_active.begin(), m_active.end(),
+            [](const Order& o) { return o.status() != OrderStatus::PENDING; }),
+        m_active.end());
+
+    // 새 주문 생성
+    if (++m_genTimer >= m_genEvery) {
+        m_genTimer = 0;
+        if ((int)m_active.size() < m_maxActive) generate();
+    }
+}
+
+int OrderBook::tryFulfill(const Pizza& p) {
+    for (Order& o : m_active) {
+        if (o.status() == OrderStatus::PENDING && o.matches(p)) {
+            o.setStatus(OrderStatus::COMPLETED);
+            ++m_completed;
+            return o.reward();
+        }
+    }
+    return 0;   // 맞는 주문 없음
+}
+
+void OrderBook::reset() {
+    m_active.clear();
+    m_nextId = 1; m_genTimer = 0;
+    m_completed = m_failed = 0;
+}
+
+void OrderBook::fillSnap(std::vector<OrderSnap>& out) const {
+    out.clear();
+    out.reserve(m_active.size());
+    for (const Order& o : m_active) {
+        OrderSnap s;
+        s.id = o.id();
+        s.desc = o.desc();
+        s.ticksLeft = o.ticksLeft();
+        s.reward = o.reward();
+        out.push_back(std::move(s));
+    }
 }

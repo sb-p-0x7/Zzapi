@@ -1,244 +1,205 @@
-# 🍕 Zzapi — 피자 공장 시뮬레이터
+# Zzapi — Pizza Factory Simulator
 
-ImGui 기반의 피자 공장 시뮬레이션 게임입니다.
-플레이어는 컨베이어 벨트 위의 기계들을 켜고 끄면서, 들어오는 주문에 맞는 피자를 만들어 납품합니다.
+> EC5209 *OOP with C++* (GIST, Spring 2026) — Factory Simulation Project
+> A real-time pizza factory built in **C++17** with a **Dear ImGui** GUI.
+> Raw dough enters, flows through machines and conveyor belts, and leaves as a boxed pizza
+> that you ship against incoming customer orders for money.
+
+🇰🇷 한국어 문서: [README.ko.md](README.ko.md)
 
 ---
 
-## 빌드 & 실행
+## 1. Quick start
 
-### 필요 도구
-
-| 플랫폼 | 필요 사항 |
-|--------|----------|
-| **macOS** | Xcode Command Line Tools, CMake 3.20+ |
-| **Windows** | Visual Studio 2019+ (C++ 워크로드), CMake 3.20+ |
-
-> 📦 GLFW와 ImGui는 CMake가 자동으로 다운로드합니다. 별도 설치 불필요!
+GLFW and Dear ImGui are fetched automatically by CMake — **nothing to install** beyond a
+compiler and CMake 3.20+.
 
 ### macOS / Linux
 ```bash
-chmod +x scripts/build.sh
-./scripts/build.sh          # Debug 빌드
-./scripts/build.sh Release  # Release 빌드
-./build/PizzaFactory        # 실행
+./scripts/build.sh            # Debug build
+./scripts/build.sh Release    # Release build
+./build/PizzaFactory          # run
 ```
 
-### Windows
-```cmd
-scripts\build.bat           # Debug 빌드
-scripts\build.bat Release   # Release 빌드
-build\Debug\PizzaFactory.exe  # 실행
+### Windows (Visual Studio toolchain)
+```bat
+scripts\build.bat Release
+build\Release\PizzaFactory.exe
 ```
 
-### 직접 CMake 사용
+### Plain CMake (any platform)
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
 
----
+| Platform | Needs |
+|---|---|
+| macOS | Xcode Command Line Tools, CMake 3.20+ |
+| Windows | Visual Studio 2019+ (Desktop C++), CMake 3.20+ |
+| Linux | gcc/clang, CMake 3.20+, OpenGL + X11 dev headers |
 
-## 아키텍처 개요
-
-프로젝트는 **MVC (Model-View-Controller)** 패턴을 따릅니다.
-
-```
-┌──────────────────────────────────────────────────────────┐
-│  App  (src/app.h, app.cpp)                               │
-│  ┌─────────────┐ ┌──────────────────┐ ┌───────────────┐  │
-│  │    Model     │ │   Controller     │ │     View      │  │
-│  │ (데이터)     │◄│ (비즈니스 로직)   │ │ (ImGui 렌더링)│  │
-│  └─────────────┘ └──────────────────┘ └───────────────┘  │
-└──────────────────────────────────────────────────────────┘
-```
-
-### 실행 흐름
-
-`App` 클래스가 MVC 세 컴포넌트를 소유하며, `main.cpp`의 ImGui 렌더 루프에서 매 프레임 아래 순서로 호출됩니다:
-
-1. **`App::Init()`** — Model, Controller, View를 생성하고 서로 연결
-2. **매 프레임 `App::Update()`** →
-   - `FactoryController::Update()` — 게임 로직 (파이프라인 처리, 주문 관리)
-   - `DashboardView::Render()` — ImGui UI 렌더링
+> **Windows note:** the build sets MSVC `/utf-8` automatically (sources are UTF-8), so text
+> renders correctly. MinGW/Clang/GCC need no extra flag.
 
 ---
 
-## 핵심 모델 (Models)
+## 2. How to use it
 
-### Pizza (`src/models/pizza.h`)
+The app opens six windows (drag them around freely):
 
-파이프라인을 따라 이동하며 기계에 의해 속성이 변화하는 피자 객체입니다.
+| Window | What it does |
+|---|---|
+| **Simulation Control** | `Start` / `Pause` / `Reset`, a **Speed** slider (1×–5×), a **Scenario** dropdown, the live tick counter and cash. |
+| **Factory Floor** | The animated pipeline. Machines are colour-coded by state; pizzas are drawn on belts and move in real time. Click a node — or a row in the machine list below — to select it. Each row shows a progress / conveyor-load bar. |
+| **Inspector** | Full detail for the selected machine: state, health bar, progress bar, queue depth, output count, process time, plus **Force Break** and **Instant Repair**. |
+| **Event Log** | Timestamped scrolling log (shipments, breakdowns, scenario loads). **Clear** button + auto-scroll toggle. |
+| **Statistics** | Running totals: finished goods, WIP, breakdowns, lost products, earnings. |
+| **Orders** | Incoming customer orders (size + toppings required), the reward, and a countdown bar. |
 
-| 속성 | 타입 | 설명 |
-|------|------|------|
-| `id` | `int` | 고유 식별자 |
-| `doughState` | `DoughState` | 반죽 상태 (`RAW` → `STRETCHED` → `BAKED`) |
-| `size` | `PizzaSize` | 크기 (`SMALL`, `MEDIUM`, `LARGE`) |
-| `hasSauce` | `bool` | 소스가 발라졌는지 |
-| `hasCheese` | `bool` | 치즈가 올라갔는지 |
-| `isBaked` | `bool` | 오븐에서 구워졌는지 |
-| `isCut` | `bool` | 커팅되었는지 |
-| `isPackaged` | `bool` | 포장되었는지 |
+**Machine state colours:** 🟦 Idle · 🟩 Working · 🟥 Broken (flashing) · ⬛ Off.
 
-### Machine (`src/models/machines.h`)
-
-모든 기계의 추상 베이스 클래스입니다. 두 가지 계열로 나뉩니다:
-
-| 계열 | 설명 | 예시 |
-|------|------|------|
-| **NonConveyorMachine** | 한 사이클에 `capacity`개의 피자를 일괄 처리하는 고정형 기계 | DoughStretcher, Oven 등 |
-| **ConveyorMachine** | `length`개의 슬롯을 가진 벨트 위에서 피자를 이동시키는 기계 | ConveyorBelt |
-
-#### 구현된 기계 종류
-
-| 클래스 | 역할 | 피자에 미치는 영향 |
-|--------|------|-------------------|
-| `DoughStretcher` | 반죽 늘리기 | `doughState` → `STRETCHED`, `size` 설정 |
-| `SauceSpreader` | 소스 바르기 | `hasSauce` → `true` |
-| `CheeseSpreader` | 치즈 뿌리기 | `hasCheese` → `true` |
-| `ToppingApplier` | 토핑 올리기 | `hasTopping` → `true` |
-| `Oven` | 굽기 | `doughState` → `BAKED`, `isBaked` → `true` |
-| `Cutter` | 자르기 | `isCut` → `true` |
-| `PackagingMachine` | 포장 | `isPackaged` → `true` |
-| `ConveyorBelt` | 기계 사이 이동 | 속성 변경 없음 (이동만) |
-
-#### 기계 공통 기능
-
-- **전원 제어 (`isPoweredOn`)**: 기계의 전원을 끄면 `process()` 호출 시 아무 작업도 하지 않습니다. 피자는 기계를 **그대로 통과**하지만 속성이 변경되지 않습니다. 이를 활용해 "소스 없는 피자", "굽지 않은 피자" 등 다양한 조합을 만들 수 있습니다.
-- **내구도 (`durability`)**: 기계에 용량의 85% 이상 피자가 차면 내구도가 감소합니다. 내구도가 0이 되면 기계가 고장(`isBroken = true`)나며, 일정 프레임(`repairTime`) 후 자동 수리됩니다.
-
-### Order & OrderManager (`src/models/order.h`)
-
-주문 시스템입니다. 하나의 파일에 `Order`와 `OrderManager` 두 클래스가 정의되어 있습니다.
-
-**Order** — 개별 주문을 나타냅니다.
-
-| 속성 | 설명 |
-|------|------|
-| `requiredSize` | 요구하는 피자 크기 |
-| `requiresSauce` | 소스 필요 여부 |
-| `requiresCheese` | 치즈 필요 여부 |
-| `requiresBake` | 굽기 필요 여부 |
-| `timeLeft` | 남은 제한 시간 (프레임 단위) |
-| `reward` | 완료 시 보상 |
-
-**OrderManager** — 주문의 생성, 추적, 검증을 담당합니다.
-- `tick()`: 일정 주기(600프레임 ≈ 10초)마다 랜덤 조건의 주문을 생성하고, 기존 주문들의 타이머를 감소시킵니다. 시간 초과 시 주문은 `FAILED` 처리됩니다.
-- `verifyPizza(Pizza*)`: 완성된 피자가 대기 중인 주문 조건과 일치하는지 검사합니다.
-
-### PizzaFactoryModel (`src/models/pizza_factory_model.h`)
-
-앱의 전체 상태를 보유하는 최상위 모델입니다.
-
-| 속성 | 설명 |
-|------|------|
-| `pipeline` | 기계들의 순서 배열 (기본 9대) |
-| `orderManager` | 주문 관리자 |
-| `finishedPizzas` | 주문 매칭에 실패하여 쌓인 피자 |
-| `lostPizzas` | 기계 고장/용량 초과로 유실된 피자 |
-| `isSpawningEnabled` | 반죽 투입 메인 스위치 |
-
-> 캡슐화 원칙을 따라, 모든 데이터 필드는 `private`이며 Getter/Setter 메서드를 통해 접근합니다.
+Press **Start**, watch dough flow left-to-right through the snaking pipeline, and try
+**Force Break** on a machine to see the line back up and the loss counters move.
 
 ---
 
-## 파이프라인 동작 원리
+## 3. Architecture — UI ⇄ backend are fully decoupled
 
-### 기본 파이프라인 구성
-
-`PizzaFactoryModel::InitDefaultPipeline()`에서 아래 순서로 기계들이 배치됩니다:
-
-```
-[반죽기] → [벨트] → [소스] → [벨트] → [치즈] → [벨트] → [오븐] → [벨트] → [포장기]
-   1         2        3        4        5        6        7        8        9
-```
-
-### 프레임당 처리 흐름 (`FactoryController::Update()`)
-
-매 프레임마다 아래 순서로 실행됩니다:
-
-#### Step 1 — 주문 매니저 업데이트
-```
-OrderManager::tick()
-  → 600프레임마다 새 주문 생성
-  → 기존 주문들의 타이머 감소 (시간 초과 시 FAILED)
-```
-
-#### Step 2 — 피자 반죽 투입
-```
-isSpawningEnabled == true && 60프레임 주기마다:
-  → 새 Pizza 객체 생성 (id 자동 부여)
-  → 파이프라인 첫 번째 기계(반죽기)에 투입 시도
-  → 실패 시 (기계 고장 or 꽉 참) → lostPizzas로 이동
-```
-
-#### Step 3 — 파이프라인 역순 업데이트
-
-**파이프라인을 뒤에서 앞으로 (index 8 → 0) 순회**합니다.
-역순으로 처리하는 이유는 한 프레임에 피자가 여러 기계를 연속 통과하는 것을 방지하기 위해서입니다.
-
-각 기계에 대해:
+The simulation logic never touches ImGui, and the UI never touches a simulation object.
+They communicate only through two **plain value structs** in [`src/bridge.h`](src/bridge.h):
 
 ```
-1. machine->tick()          — 수리 타이머 등 상태 업데이트
-2. if (고장) → skip          — 고장난 기계는 아무 것도 하지 않음
-3. machine->process()       — 피자 속성 변경 (전원 꺼져 있으면 건너뜀)
-4. if (배출할 피자가 있으면):
-   ├── 마지막 기계인 경우:
-   │   ├── OrderManager.verifyPizza() → 주문 매칭 성공 시 → 주문 완료, 피자 소멸
-   │   └── 매칭 실패 → lostPizzas로 폐기
-   └── 중간 기계인 경우:
-       ├── 다음 기계에 insert 성공 → 피자 이동
-       └── 다음 기계 고장 or 꽉 참 → lostPizzas로 유실
+   ┌────────────────────┐   FactorySnap  (read-only copy)   ┌─────────────────────┐
+   │  DashboardView      │ ◄──────────────────────────────── │  Factory            │
+   │  (ImGui, src/views) │                                   │  (sim, src/models)  │
+   │  draws snapshot     │   FactoryCmd   (one-frame flags)  │  owns Machine* etc. │
+   └────────────────────┘ ────────────────────────────────► └─────────────────────┘
+            ▲                                                          ▲
+            └───────────────── FactoryController ──────────────────────┘
+                         maps cmd → Factory control methods
 ```
 
-### 시각화 예시
+The only file that sees both sides is [`src/app.cpp`](src/app.cpp). Each frame:
 
-아래는 3프레임에 걸쳐 피자 하나가 이동하는 모습입니다:
+```cpp
+FactorySnap snap = factory.snapshot();   // 1. read-only snapshot
+view.Render(snap, cmd);                  // 2. buttons set cmd flags
+controller.applyCmd(cmd);                // 3. cmd → factory.start()/forceBreak()/…
+cmd = FactoryCmd{};                      // 4. clear so a command never fires twice
+controller.advance(dt);                  // 5. step the sim (speed × base tick rate)
+```
+
+The UI is therefore always **one frame behind** — it reads `snap.state`, never
+`machine.state`. A button click leaves a note (`cmd.forceBreak = true`); `app.cpp` delivers
+that note to the backend on the backend's terms.
+
+### Type hierarchy (no `if/else` on concrete type in the sim loop)
 
 ```
-Frame 1:  [Pizza A] → [  빈  ] → [  빈  ] → ...
-Frame 2:  [  빈  ] → [Pizza A] → [  빈  ] → ...
-Frame 3:  [  빈  ] → [  빈  ] → [Pizza A] → ...
+Machine (abstract)
+ ├─ NonConveyorMachine (abstract) ── processes one pizza for N ticks
+ │    └─ DoughStretcher · SauceSpreader · CheeseSpreader · ToppingApplier
+ │       · Oven · Cutter · Packager
+ └─ ConveyorMachine (abstract) ───── carries pizzas across belt slots
+      └─ ConveyorBelt
+
+Pizza (abstract) ├─ RawDough (pipeline start) └─ BoxedPizza (pipeline end)
+Scenario (abstract) ├─ FreePlay ├─ NormalFlow └─ RandomBreakdown
 ```
+
+`Factory::step()` is `for (Machine* m : pipeline) m->update(tick);` — pure polymorphism.
+Adding a new machine is one subclass with `transform()` + `displayName()`; **the sim loop and
+the UI loop change by zero lines** because each machine fills its own `MachineSnap`.
+Every data member on every class is `private`/`protected`.
+
+See [DESIGN.md](DESIGN.md) for the full design doc, UML and ER diagrams.
 
 ---
 
-## 프로젝트 구조
+## 4. The pipeline
+
+```
+IN ▸ Dough Stretcher → [Conveyor] → Sauce → Cheese → Topping → Oven → Cutter → [Conveyor] → Packager ▸ OUT
+```
+
+| Machine | Effect on the pizza |
+|---|---|
+| Dough Stretcher | dough → `STRETCHED`, sets size |
+| Sauce Spreader | adds sauce |
+| Cheese Spreader | adds cheese |
+| Topping Applier | adds topping |
+| Oven | dough → `BAKED` |
+| Cutter | cuts into slices |
+| Packager | `RawDough` → `BoxedPizza` (finished) |
+| Conveyor | moves pizzas between machines (no processing) |
+
+If a machine is broken or full, items back up naturally; items dropped at a full/broken
+stage are counted as **lost products**.
+
+### Scenarios (runtime dropdown)
+- **Free Play** — default game mode, light breakdown chance.
+- **Normal flow** — balanced pipeline, no breakdowns.
+- **Random breakdowns** — elevated breakdown probability.
+- **Bottleneck** — faster input plus a very slow Oven (20 ticks), so work piles
+  up behind it via natural backpressure (WIP rises, throughput drops).
+
+---
+
+## 5. Assignment requirements → where they live
+
+| Requirement (factory_project_v3) | Implementation |
+|---|---|
+| Abstract root + ≥2 inheritance levels | `Machine` → `NonConveyor/Conveyor` → concrete |
+| Sim loop has no type branching | `Factory::step()` over `Machine*` |
+| New machine = 0 loop/UI edits | each machine provides `displayName/icon/snapshot` |
+| No public data members | all fields `private`/`protected` |
+| Abstract product, start+end stages | `Pizza` → `RawDough` / `BoxedPizza` |
+| UI / backend decoupled, one seam | `bridge.h` snapshot/cmd, only `app.cpp` sees both |
+| Scenario dropdown (polymorphic) | `Scenario` + `scenarioNames` in snapshot |
+| 5 required ImGui windows + widgets | Simulation Control / Factory Floor / Inspector / Event Log / Statistics (+ Orders) |
+
+Required ImGui widgets are all present: `Button`, `SliderInt`, `Combo`, `ProgressBar`,
+`TextColored`, `BeginChild/EndChild`, `Selectable`.
+
+---
+
+## 6. Project layout
 
 ```
 Zzapi/
-├── CMakeLists.txt                    # 빌드 설정 (크로스플랫폼)
-├── README.md
-├── .gitignore
+├── CMakeLists.txt          # cross-platform build (auto-fetches GLFW + ImGui)
+├── DESIGN.md               # architecture, UML, ER diagrams
+├── README.md / README.ko.md
 ├── scripts/
-│   ├── build.sh                      # Mac/Linux 빌드 스크립트
-│   └── build.bat                     # Windows 빌드 스크립트
+│   ├── build.sh / build.bat   # convenience build scripts
+│   └── sim_test.cpp           # headless backend driver (no ImGui)
 └── src/
-    ├── main.cpp                      # GLFW/ImGui 초기화 및 렌더 루프
-    ├── app.h / app.cpp               # MVC 컴포넌트 관리 (최상위)
-    ├── models/
-    │   ├── pizza.h / pizza.cpp               # Pizza 객체
-    │   ├── machines.h / machines.cpp         # Machine 계층 구조
-    │   ├── order.h / order.cpp               # Order + OrderManager
-    │   └── pizza_factory_model.h / .cpp      # 전체 상태 모델
+    ├── bridge.h            # UI ⇄ backend contract (POD: FactorySnap / FactoryCmd)
+    ├── main.cpp            # GLFW + ImGui boilerplate
+    ├── app.{h,cpp}         # the one seam that sees both sides
+    ├── models/             # backend (ImGui-free)
+    │   ├── pizza.{h,cpp}  machine.{h,cpp}  factory.{h,cpp}
+    │   └── order.{h,cpp}  scenario.{h,cpp}
     ├── controllers/
-    │   └── factory_controller.h / .cpp       # 게임 로직 (파이프라인 처리)
+    │   └── factory_controller.{h,cpp}   # cmd → factory, tick cadence
     └── views/
-        └── dashboard_view.h / .cpp           # ImGui 대시보드 UI (TODO)
+        └── dashboard_view.{h,cpp}       # snapshot → ImGui (bridge.h only)
 ```
+
+### Headless backend test
+```bash
+g++ -std=c++17 scripts/sim_test.cpp src/models/*.cpp -Isrc -o /tmp/simtest && /tmp/simtest
+```
+Runs 1200 ticks and prints machine states, orders, and the event log — handy for verifying
+the simulation without opening the GUI.
 
 ---
 
-## 구현 현황
-
-| 영역 | 상태 | 설명 |
-|------|------|------|
-| Pizza 모델 | ✅ 완료 | 사이즈(S/M/L), 소스·치즈·굽기 등 bool 속성 |
-| Machine 계층 구조 | ✅ 완료 | 추상 클래스 + 7종 구체 기계 + 전원 제어 |
-| 파이프라인 처리 로직 | ✅ 완료 | 역순 순회, 고장/용량 초과 시 Loss 처리 |
-| 주문 시스템 | ✅ 완료 | 자동 생성, 타이머, 납품 검증 |
-| 팩토리 스폰 토글 | ✅ 완료 | 반죽 투입 시작/정지 제어 |
-| 캡슐화 | ✅ 완료 | PizzaFactoryModel 데이터 은닉 |
-| ImGui 대시보드 UI | 🚧 미구현 | 주문 표시, 기계 전원 버튼 등 UI 작업 필요 |
+## 7. Notes & known limitations
+- **Fonts:** the bundled fonts cover Latin/Korean + BMP symbols (▶ ⏸ ↻ ⚠). Astral-plane
+  colour emoji (🍕, 🔥…) are intentionally avoided because the default ImGui rasterizer
+  cannot render them.
+- **Balance:** the factory always produces **Medium** pizzas, so orders are generated at
+  Medium too and are fulfillable (shipping a matching pizza clears the oldest order).
+  Variable-size production with size-based order matching is a planned gameplay extension.

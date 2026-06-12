@@ -1,147 +1,46 @@
 #include "factory_controller.h"
-#include "../models/pizza_factory_model.h"
+#include "../models/factory.h"
 
-void FactoryController::Init(PizzaFactoryModel* model)
+// 1배속 기준 초당 논리 틱 수. speed(1..5)를 곱해 실제 진행 속도가 된다.
+// 피자가 머신/벨트에 머무는 시간이 눈에 보이도록 느린 기본 속도를 쓴다.
+static constexpr float BASE_TPS = 4.0f;
+
+void FactoryController::Init(Factory* factory)
 {
-    m_model = model;
+    m_factory = factory;
 }
 
-void FactoryController::Update()
+void FactoryController::applyCmd(const FactoryCmd& cmd)
 {
-    if (!m_model) return;
-    if (!m_model->getIsRunning()) return;
+    if (!m_factory) return;
 
-    m_tickAccumulator += m_model->getSimulationSpeed();
-    while (m_tickAccumulator >= 1.0f) {
-        SingleTick();
-        m_tickAccumulator -= 1.0f;
-    }
+    // 시나리오는 바뀌었을 때만(내부에서 판단). -1 이면 변경 없음.
+    if (cmd.scenario >= 0) m_factory->setScenario(cmd.scenario);
+
+    if (cmd.start) m_factory->start();
+    if (cmd.pause) m_factory->pause();
+    if (cmd.reset) { m_factory->reset(); m_acc = 0.0f; }
+
+    m_factory->setSpeed(cmd.speed);
+    m_speed = cmd.speed;
+
+    if (cmd.forceBreak)    m_factory->forceBreak(cmd.selectedMachine);
+    if (cmd.instantRepair) m_factory->repair(cmd.selectedMachine);
+    if (cmd.clearLog)      m_factory->clearLog();
+    m_factory->tuneMachine(cmd.selectedMachine, cmd.tune);   // 음수 필드 = no-op
 }
 
-void FactoryController::SingleTick()
+void FactoryController::advance(float dt)
 {
-    m_frameCount++;
+    if (!m_factory || !m_factory->isRunning()) return;
 
-    // 주문 매니저 업데이트
-    m_model->getOrderManager()->tick();
+    m_acc += dt * BASE_TPS * static_cast<float>(m_speed);
 
-    if (m_model->getIsSpawningEnabled() && m_frameCount % 60 == 0) {
-        if (!m_model->getPipeline().empty()) {
-            Machine* firstMachine = m_model->getPipeline().front();
-            Pizza* newPizza = new Pizza(m_model->generateNextPizzaId());
-            if (firstMachine->getIsBroken() || !firstMachine->insertPizza(newPizza)) {
-                // 첫 머신이 고장났거나 꽉 찼다면 로스
-                m_model->addLostPizza(newPizza);
-            }
-        }
-    }
+    // 폭주 방지(프레임 끊김 시 누적 과다): 한 프레임 최대 진행량 제한
+    if (m_acc > 60.0f) m_acc = 60.0f;
 
-    // 2. 파이프라인 역순 업데이트 (뒤에서부터 앞 방향으로 이동 처리)
-    int n = m_model->getPipeline().size();
-    for (int i = n - 1; i >= 0; --i) {
-        Machine* current = m_model->getPipeline()[i];
-
-        // 매 프레임 수리 등 상태 업데이트
-        bool wasBroken = current->getIsBroken();
-        current->tick();
-        if (!wasBroken && current->getIsBroken()) {
-            m_model->incrementBreakdownCount();
-        }
-
-        // 고장난 머신은 작동(process)도 배출(eject)도 하지 않고 멈춤
-        if (current->getIsBroken()) {
-            continue;
-        }
-
-        // 먼저 현재 머신의 처리를 수행 (논컨베이어의 경우 속성 변경)
-        current->process();
-
-        // 그 다음, 다음 머신으로 넘길 피자가 있는지 확인
-        if (current->hasPizzaToEject()) {
-            if (i == n - 1) {
-                // 마지막 머신이면 배출
-                Pizza* finishedPizza = current->ejectPizza();
-                if (finishedPizza) {
-                    // 완료 가능한 주문 보상 찾기
-                    int reward = 0;
-                    for (Order* order : m_model->getOrderManager()->getActiveOrders()) {
-                        if (order->checkMatch(finishedPizza)) {
-                            reward = order->getReward();
-                            break;
-                        }
-                    }
-                    if (m_model->getOrderManager()->verifyPizza(finishedPizza)) {
-                        // 주문 완료 처리됨, 피자는 전달되었으므로 모델의 finished 리스트에 보관
-                        m_model->addEarnings(reward);
-                        m_model->addFinishedPizza(finishedPizza);
-                    } else {
-                        // 주문 조건과 맞지 않는 피자는 로스(폐기) 처리
-                        m_model->addLostPizza(finishedPizza);
-                    }
-                }
-            } else {
-                Machine* next = m_model->getPipeline()[i + 1];
-                // 무조건 배출 시도 (로스 허용)
-                Pizza* pizza = current->ejectPizza();
-                if (pizza) {
-                    if (next->getIsBroken() || !next->insertPizza(pizza)) {
-                        // 다음 머신이 고장났거나 용량 초과로 인서트 실패 -> 로스 발생!
-                        m_model->addLostPizza(pizza);
-                    }
-                }
-            }
-        }
-    }
-}
-
-void FactoryController::togglePlayPause()
-{
-    if (m_model) {
-        m_model->setIsRunning(!m_model->getIsRunning());
-    }
-}
-
-void FactoryController::resetSimulation()
-{
-    if (m_model) {
-        m_model->setIsRunning(false);
-        m_model->setIsSpawningEnabled(false);
-        m_model->resetBreakdownCount();
-        m_model->resetEarnings();
-        m_model->resetFinishedAndLostPizzas();
-
-        // 모든 머신 초기화
-        for (Machine* m : m_model->getPipeline()) {
-            m->resetState();
-        }
-        
-        // 주문 관리자 초기화
-        m_model->getOrderManager()->reset();
-
-    }
-}
-
-void FactoryController::forceBreakMachine(int idx)
-{
-    if (m_model && idx >= 0 && idx < (int)m_model->getPipeline().size()) {
-        Machine* m = m_model->getPipeline()[idx];
-        if (!m->getIsBroken()) {
-            m->forceBreak();
-            m_model->incrementBreakdownCount();
-        }
-    }
-}
-
-void FactoryController::instantRepairMachine(int idx)
-{
-    if (m_model && idx >= 0 && idx < (int)m_model->getPipeline().size()) {
-        m_model->getPipeline()[idx]->instantRepair();
-    }
-}
-
-void FactoryController::toggleMachinePower(int idx)
-{
-    if (m_model && idx >= 0 && idx < (int)m_model->getPipeline().size()) {
-        m_model->getPipeline()[idx]->togglePower();
+    while (m_acc >= 1.0f) {
+        m_factory->step();
+        m_acc -= 1.0f;
     }
 }

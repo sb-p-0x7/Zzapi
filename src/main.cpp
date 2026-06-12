@@ -58,7 +58,7 @@ int main(int, char**)
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
     {
-        fprintf(stderr, "GLFW 초기화 실패!\n");
+        fprintf(stderr, "GLFW init failed!\n");
         return 1;
     }
 
@@ -81,7 +81,7 @@ int main(int, char**)
     GLFWwindow* window = glfwCreateWindow(1280, 720, "PizzaFactory", nullptr, nullptr);
     if (window == nullptr)
     {
-        fprintf(stderr, "윈도우 생성 실패!\n");
+        fprintf(stderr, "Window creation failed!\n");
         glfwTerminate();
         return 1;
     }
@@ -139,11 +139,11 @@ int main(int, char**)
             };
 
             io.Fonts->AddFontFromFileTTF(fontPath, 18.0f, &fontConfig, ranges);
-            fprintf(stdout, "한글 폰트 로드: %s\n", fontPath);
+            fprintf(stdout, "Loaded font: %s\n", fontPath);
         }
         else
         {
-            fprintf(stderr, "한글 폰트를 찾을 수 없습니다. 기본 폰트를 사용합니다.\n");
+            fprintf(stderr, "Font not found; using default font.\n");
             io.Fonts->AddFontDefault();
         }
     }

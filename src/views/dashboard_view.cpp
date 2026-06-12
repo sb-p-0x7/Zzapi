@@ -1,762 +1,574 @@
 #include "dashboard_view.h"
-#include "../models/pizza_factory_model.h"
-#include "../controllers/factory_controller.h"
-#include "../models/machines.h"
-#include "imgui.h"
+#include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <string>
 #include <vector>
 
 // =============================================================================
-// Helper Drawing Functions
+//  bridge.h(값 구조체)만으로 그린다. 머신/피자 객체 포인터는 어디에도 없다.
+//  사용 폰트(main.cpp)가 커버하는 글리프만 사용: ASCII + 한글 + BMP 기호
+//  (▶ ⏸ ↻ ⚠ ● ▰ → ⌛). 0x1F000+ 이모지는 폰트 미포함이라 쓰지 않는다.
 // =============================================================================
 
-static void DrawPizza(ImDrawList* drawList, ImVec2 center, Pizza* pizza) {
-    if (!pizza) return;
-    
-    // 1. Draw Dough base
-    float r = 16.0f; // Medium
-    if (pizza->getSize() == PizzaSize::SMALL) r = 12.0f;
-    else if (pizza->getSize() == PizzaSize::LARGE) r = 20.0f;
-    
-    ImU32 doughColor = ImColor(245, 222, 179); // Cream (RAW)
-    if (pizza->getDoughState() == DoughState::STRETCHED) {
-        doughColor = ImColor(255, 239, 213); // Lighter cream
-    } else if (pizza->getDoughState() == DoughState::BAKED || pizza->getIsBaked()) {
-        doughColor = ImColor(210, 150, 75); // Golden brown (BAKED)
+namespace {
+
+constexpr float kPi = 3.14159265f;
+
+// ── 상태 → 색/라벨 ───────────────────────────────────────────────────────────
+ImVec4 StateColor(MachineState s) {
+    switch (s) {
+        case MachineState::WORKING: return ImVec4(0.26f, 0.85f, 0.42f, 1.0f);
+        case MachineState::BROKEN:  return ImVec4(0.95f, 0.30f, 0.25f, 1.0f);
+        case MachineState::OFF:     return ImVec4(0.50f, 0.52f, 0.56f, 1.0f);
+        case MachineState::IDLE:
+        default:                    return ImVec4(0.40f, 0.62f, 0.85f, 1.0f);
     }
-    
-    // Draw crust border
-    drawList->AddCircleFilled(center, r, doughColor);
-    drawList->AddCircle(center, r, ImColor(139, 90, 43), 0, 1.5f); // Crust line
-    
-    // 2. Draw Sauce
-    if (pizza->getHasSauce()) {
-        drawList->AddCircleFilled(center, r - 3.0f, ImColor(200, 40, 40)); // Red sauce
+}
+const char* StateLabel(MachineState s) {
+    switch (s) {
+        case MachineState::WORKING: return "Working";
+        case MachineState::BROKEN:  return "Broken";
+        case MachineState::OFF:     return "Off";
+        case MachineState::IDLE:
+        default:                    return "Idle";
     }
-    
-    // 3. Draw Cheese
-    if (pizza->getHasCheese()) {
-        drawList->AddCircleFilled(center, r - 5.0f, ImColor(255, 220, 100, 220)); // Yellow cheese
-    }
-    
-    // 4. Draw Toppings
-    if (pizza->getHasTopping()) {
-        float dist = r - 7.0f;
-        if (dist > 3.0f) {
-            drawList->AddCircleFilled(ImVec2(center.x - dist/2, center.y - dist/2), 2.5f, ImColor(150, 20, 20)); // Pepperoni
-            drawList->AddCircleFilled(ImVec2(center.x + dist/2, center.y - dist/2), 2.5f, ImColor(150, 20, 20));
-            drawList->AddCircleFilled(ImVec2(center.x - dist/2, center.y + dist/2), 2.5f, ImColor(150, 20, 20));
-            drawList->AddCircleFilled(ImVec2(center.x + dist/2, center.y + dist/2), 2.5f, ImColor(150, 20, 20));
-            drawList->AddCircleFilled(center, 2.5f, ImColor(150, 20, 20));
+}
+
+// ── 피자 그리기 (PizzaView 값 구조체 기반) ───────────────────────────────────
+void DrawPizza(ImDrawList* dl, ImVec2 c, const PizzaView& p) {
+    float r = 15.0f;
+    if (p.size == 0)      r = 11.0f;   // S
+    else if (p.size == 2) r = 19.0f;   // L
+
+    ImU32 dough = IM_COL32(245, 222, 179, 255);              // RAW
+    if (p.doughStage == 1) dough = IM_COL32(255, 239, 213, 255); // STRETCHED
+    else if (p.doughStage == 2) dough = IM_COL32(210, 150, 75, 255); // BAKED
+
+    dl->AddCircleFilled(c, r, dough);
+    dl->AddCircle(c, r, IM_COL32(139, 90, 43, 255), 0, 1.5f);
+
+    if (p.sauce)  dl->AddCircleFilled(c, r - 3.0f, IM_COL32(200, 40, 40, 255));
+    if (p.cheese) dl->AddCircleFilled(c, r - 5.0f, IM_COL32(255, 220, 100, 220));
+    if (p.hasTopping) {
+        float d = r - 7.0f;
+        if (d > 3.0f) {
+            ImU32 pep = IM_COL32(150, 20, 20, 255);
+            dl->AddCircleFilled(ImVec2(c.x - d/2, c.y - d/2), 2.5f, pep);
+            dl->AddCircleFilled(ImVec2(c.x + d/2, c.y - d/2), 2.5f, pep);
+            dl->AddCircleFilled(ImVec2(c.x - d/2, c.y + d/2), 2.5f, pep);
+            dl->AddCircleFilled(ImVec2(c.x + d/2, c.y + d/2), 2.5f, pep);
+            dl->AddCircleFilled(c, 2.5f, pep);
         }
     }
-    
-    // 5. Draw Slices (Cut marks)
-    if (pizza->getIsCut()) {
-        int count = pizza->getSliceCount();
-        if (count <= 0) count = 8; // Default to 8
+    if (p.cut) {
+        const int count = 8;
         for (int i = 0; i < count / 2; ++i) {
-            float angle = i * (3.14159265f / (count / 2));
-            ImVec2 d(cos(angle) * r, sin(angle) * r);
-            drawList->AddLine(ImVec2(center.x - d.x, center.y - d.y), ImVec2(center.x + d.x, center.y + d.y), ImColor(50, 30, 10, 150), 1.0f);
+            float a = i * (kPi / (count / 2));
+            ImVec2 d(std::cos(a) * r, std::sin(a) * r);
+            dl->AddLine(ImVec2(c.x - d.x, c.y - d.y), ImVec2(c.x + d.x, c.y + d.y),
+                        IM_COL32(60, 35, 12, 150), 1.0f);
         }
     }
-    
-    // 6. Draw Packaging box
-    if (pizza->getIsPackaged()) {
-        drawList->AddRect(ImVec2(center.x - r - 4, center.y - r - 4), ImVec2(center.x + r + 4, center.y + r + 4), ImColor(180, 130, 90), 4.0f, 0, 2.0f);
+    if (p.boxed) {
+        dl->AddRect(ImVec2(c.x - r - 4, c.y - r - 4), ImVec2(c.x + r + 4, c.y + r + 4),
+                    IM_COL32(180, 130, 90, 255), 4.0f, 0, 2.0f);
     }
 }
 
-static void DrawConveyorBelt(ImDrawList* drawList, ImVec2 start, ImVec2 end, bool reverse = false) {
-    // Draw thick gray belt background
-    drawList->AddLine(start, end, ImColor(65, 70, 75), 32.0f);
-    
-    // Draw borders
-    ImVec2 dir = ImVec2(end.x - start.x, end.y - start.y);
-    float len = sqrt(dir.x * dir.x + dir.y * dir.y);
-    if (len > 0.0f) {
-        dir.x /= len;
-        dir.y /= len;
-        ImVec2 normal(-dir.y, dir.x);
-        
-        drawList->AddLine(ImVec2(start.x + normal.x * 16.0f, start.y + normal.y * 16.0f), 
-                          ImVec2(end.x + normal.x * 16.0f, end.y + normal.y * 16.0f), ImColor(40, 42, 45), 2.5f);
-        drawList->AddLine(ImVec2(start.x - normal.x * 16.0f, start.y - normal.y * 16.0f), 
-                          ImVec2(end.x - normal.x * 16.0f, end.y - normal.y * 16.0f), ImColor(40, 42, 45), 2.5f);
-        
-        // Draw moving slits for the conveyor texture (Micro-animation)
-        float speed = 30.0f;
-        float timeOffset = fmod(ImGui::GetTime() * speed, 16.0f);
-        if (reverse) {
-            timeOffset = 16.0f - timeOffset;
-        }
-        for (float dist = timeOffset; dist < len; dist += 16.0f) {
-            ImVec2 lineCenter(start.x + dir.x * dist, start.y + dir.y * dist);
-            drawList->AddLine(ImVec2(lineCenter.x - normal.x * 10.0f, lineCenter.y - normal.y * 10.0f),
-                              ImVec2(lineCenter.x + normal.x * 10.0f, lineCenter.y + normal.y * 10.0f), ImColor(50, 55, 60), 2.0f);
-        }
+// ── 직선 컨베이어 벨트 (시간 기반 슬릿 애니메이션) ───────────────────────────
+void DrawBelt(ImDrawList* dl, ImVec2 a, ImVec2 b, bool reverse) {
+    dl->AddLine(a, b, IM_COL32(62, 67, 73, 255), 26.0f);
+    ImVec2 dir(b.x - a.x, b.y - a.y);
+    float len = std::sqrt(dir.x*dir.x + dir.y*dir.y);
+    if (len <= 0.0f) return;
+    dir.x /= len; dir.y /= len;
+    ImVec2 n(-dir.y, dir.x);
+    dl->AddLine(ImVec2(a.x + n.x*13, a.y + n.y*13), ImVec2(b.x + n.x*13, b.y + n.y*13), IM_COL32(38,40,44,255), 2.0f);
+    dl->AddLine(ImVec2(a.x - n.x*13, a.y - n.y*13), ImVec2(b.x - n.x*13, b.y - n.y*13), IM_COL32(38,40,44,255), 2.0f);
+    float off = std::fmod((float)ImGui::GetTime() * 26.0f, 14.0f);
+    if (reverse) off = 14.0f - off;
+    for (float d = off; d < len; d += 14.0f) {
+        ImVec2 m(a.x + dir.x*d, a.y + dir.y*d);
+        dl->AddLine(ImVec2(m.x - n.x*9, m.y - n.y*9), ImVec2(m.x + n.x*9, m.y + n.y*9), IM_COL32(48,53,58,255), 2.0f);
     }
 }
 
-static bool DrawMachineNode(ImDrawList* drawList, ImVec2 center, Machine* machine, const char* nameKo, const char* iconStr, int pipelineIdx) {
-    ImVec2 pMin(center.x - 45, center.y - 45);
-    ImVec2 pMax(center.x + 45, center.y + 45);
-    
-    // Bounding box colors
-    ImU32 bgColor = ImColor(38, 48, 58);
-    ImU32 borderColor = ImColor(110, 120, 130);
-    float borderWidth = 2.0f;
-    
-    if (machine->getIsBroken()) {
-        // Flashing red warn (Micro-animation)
-        float pulse = 0.5f + 0.5f * sin(ImGui::GetTime() * 12.0f);
-        borderColor = ImColor(255, (int)(40 + 60 * pulse), (int)(40 + 60 * pulse));
-        borderWidth = 3.0f;
-    } else if (!machine->getIsPoweredOn()) {
-        borderColor = ImColor(70, 75, 80);
-        bgColor = ImColor(26, 30, 34);
-    } else {
-        borderColor = ImColor(52, 152, 219); // Active cyan-blue
+// ── 반원(semicircle) U-turn 컨베이어 벨트 ────────────────────────────────────
+//    center c 를 중심으로 반지름 R, 각도 a0→a1 의 호 위에 두꺼운 벨트 밴드를 그린다.
+void DrawBeltArc(ImDrawList* dl, ImVec2 c, float R, float a0, float a1, bool reverse) {
+    const int SEG = 30;
+    ImU32 band = IM_COL32(62, 67, 73, 255), edge = IM_COL32(38, 40, 44, 255);
+    for (int i = 0; i < SEG; ++i) {
+        float g0 = a0 + (a1 - a0) * (float)i / SEG;
+        float g1 = a0 + (a1 - a0) * (float)(i + 1) / SEG;
+        ImVec2 in0(c.x + (R-13)*std::cos(g0), c.y + (R-13)*std::sin(g0));
+        ImVec2 ou0(c.x + (R+13)*std::cos(g0), c.y + (R+13)*std::sin(g0));
+        ImVec2 in1(c.x + (R-13)*std::cos(g1), c.y + (R-13)*std::sin(g1));
+        ImVec2 ou1(c.x + (R+13)*std::cos(g1), c.y + (R+13)*std::sin(g1));
+        dl->AddQuadFilled(in0, ou0, ou1, in1, band);
+        dl->AddLine(in0, in1, edge, 2.0f);
+        dl->AddLine(ou0, ou1, edge, 2.0f);
     }
-    
-    // Draw base card
-    drawList->AddRectFilled(pMin, pMax, bgColor, 12.0f);
-    drawList->AddRect(pMin, pMax, borderColor, 12.0f, 0, borderWidth);
-    
-    // Draw contents
-    if (machine->getIsBroken()) {
-        drawList->AddText(ImGui::GetFont(), 30.0f, ImVec2(center.x - 15, center.y - 25), ImColor(255, 60, 60), "⚠️");
-        
-        char timerBuf[32];
-        snprintf(timerBuf, sizeof(timerBuf), "수리중 %df", machine->getCurrentRepairTimer());
-        ImVec2 timerTextSize = ImGui::CalcTextSize(timerBuf);
-        drawList->AddText(ImGui::GetFont(), 13.0f, ImVec2(center.x - timerTextSize.x / 2.0f, center.y + 10), ImColor(255, 120, 120), timerBuf);
-    } else {
-        // Normal state
-        drawList->AddText(ImGui::GetFont(), 28.0f, ImVec2(center.x - 14, center.y - 24), 
-                          machine->getIsPoweredOn() ? ImColor(255, 255, 255) : ImColor(120, 120, 120), iconStr);
-        
-        ImVec2 text_size = ImGui::CalcTextSize(nameKo);
-        drawList->AddText(ImGui::GetFont(), 13.0f, ImVec2(center.x - text_size.x / 2.0f, center.y + 12), 
-                          machine->getIsPoweredOn() ? ImColor(230, 240, 250) : ImColor(100, 105, 110), nameKo);
-    }
-    
-    // Draw Durability health-bar
-    float durabilityPct = machine->getDurability() / machine->getMaxDurability();
-    if (durabilityPct < 0.0f) durabilityPct = 0.0f;
-    ImU32 barColor = ImColor(46, 204, 113); // Green
-    if (durabilityPct < 0.3f) barColor = ImColor(231, 76, 60); // Red
-    else if (durabilityPct < 0.8f) barColor = ImColor(241, 196, 15); // Yellow/Orange
-    
-    ImVec2 barMin(center.x - 35, center.y + 32);
-    ImVec2 barMax(center.x + 35, center.y + 36);
-    drawList->AddRectFilled(barMin, barMax, ImColor(40, 40, 40), 2.0f); // background
-    if (durabilityPct > 0.0f) {
-        drawList->AddRectFilled(barMin, ImVec2(barMin.x + 70.0f * durabilityPct, barMax.y), barColor, 2.0f);
-    }
-    
-    // Draw pizza inside NonConveyorMachine
-    auto* ncm = dynamic_cast<NonConveyorMachine*>(machine);
-    if (ncm && !machine->getIsBroken()) {
-        const auto& pizzas = ncm->getPizzasInProcess();
-        if (!pizzas.empty() && pizzas[0] != nullptr) {
-            DrawPizza(drawList, center, pizzas[0]);
-        }
-    }
-    
-    // Clickable invisible button over machine node
-    ImGui::SetCursorScreenPos(ImVec2(center.x - 45, center.y - 45));
-    char btnId[64];
-    snprintf(btnId, sizeof(btnId), "##btn_%d", pipelineIdx);
-    bool clicked = ImGui::InvisibleButton(btnId, ImVec2(90, 90));
-
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
-        machine->togglePower();
-    }
-
-    return clicked;
-}
-
-static void DrawDoughStorageVisual(ImDrawList* drawList, ImVec2 center) {
-    ImVec2 pMin(center.x - 45, center.y - 45);
-    ImVec2 pMax(center.x + 45, center.y + 45);
-    
-    drawList->AddRectFilled(pMin, pMax, ImColor(46, 56, 66), 12.0f);
-    drawList->AddRect(pMin, pMax, ImColor(120, 130, 140), 12.0f, 0, 2.0f);
-    
-    drawList->AddText(ImGui::GetFont(), 28.0f, ImVec2(center.x - 14, center.y - 25), ImColor(255, 255, 255), "🌾");
-    
-    // Draw flour dough balls
-    drawList->AddCircleFilled(ImVec2(center.x - 18, center.y + 8), 9.0f, ImColor(250, 240, 220));
-    drawList->AddCircleFilled(ImVec2(center.x + 18, center.y + 8), 9.0f, ImColor(250, 240, 220));
-    drawList->AddCircleFilled(ImVec2(center.x, center.y + 16), 9.0f, ImColor(250, 240, 220));
-    
-    ImVec2 text_size = ImGui::CalcTextSize("도우 보관소");
-    drawList->AddText(ImGui::GetFont(), 13.0f, ImVec2(center.x - text_size.x / 2.0f, center.y - 6), ImColor(220, 220, 220), "도우 보관소");
-}
-
-static void DrawCounterVisual(ImDrawList* drawList, ImVec2 center, PizzaFactoryModel* model) {
-    ImVec2 pMin(center.x - 45, center.y - 45);
-    ImVec2 pMax(center.x + 45, center.y + 45);
-    
-    drawList->AddRectFilled(pMin, pMax, ImColor(58, 48, 38), 12.0f);
-    drawList->AddRect(pMin, pMax, ImColor(160, 130, 90), 12.0f, 0, 2.0f);
-    
-    drawList->AddText(ImGui::GetFont(), 28.0f, ImVec2(center.x - 14, center.y - 25), ImColor(255, 220, 100), "🛎️");
-    
-    ImVec2 text_size = ImGui::CalcTextSize("카운터");
-    drawList->AddText(ImGui::GetFont(), 13.0f, ImVec2(center.x - text_size.x / 2.0f, center.y + 12), ImColor(220, 220, 220), "카운터");
-    
-    if (!model->getFinishedPizzas().empty()) {
-        // Visual pizza box stacked at delivery
-        drawList->AddRectFilled(ImVec2(center.x - 22, center.y - 4), ImVec2(center.x + 22, center.y + 6), ImColor(180, 130, 90), 3.0f);
-        drawList->AddRect(ImVec2(center.x - 22, center.y - 4), ImVec2(center.x + 22, center.y + 6), ImColor(130, 90, 60), 3.0f, 0, 1.5f);
+    float arcLen = std::fabs(a1 - a0) * R;
+    float off = std::fmod((float)ImGui::GetTime() * 26.0f, 14.0f);
+    if (reverse) off = 14.0f - off;
+    for (float d = off; d < arcLen; d += 14.0f) {
+        float g = a0 + (a1 - a0) * (d / arcLen);
+        dl->AddLine(ImVec2(c.x + (R-9)*std::cos(g), c.y + (R-9)*std::sin(g)),
+                    ImVec2(c.x + (R+9)*std::cos(g), c.y + (R+9)*std::sin(g)),
+                    IM_COL32(48, 53, 58, 255), 2.0f);
     }
 }
 
-static const char* GetMachineNameKo(Machine* m) {
-    if (dynamic_cast<DoughStretcher*>(m))   return "도우 스트레쳐";
-    if (dynamic_cast<SauceSpreader*>(m))    return "소스 스프레더";
-    if (dynamic_cast<CheeseSpreader*>(m))   return "치즈 스프레더";
-    if (dynamic_cast<Cutter*>(m))           return "커터";
-    if (dynamic_cast<Oven*>(m))             return "오븐";
-    if (dynamic_cast<ToppingApplier*>(m))   return "토핑 어플라이어";
-    if (dynamic_cast<PackagingMachine*>(m)) return "페키져";
-    return "머신";
+void DrawBar(ImDrawList* dl, ImVec2 mn, ImVec2 mx, float pct, ImU32 col) {
+    pct = pct < 0 ? 0 : (pct > 1 ? 1 : pct);
+    dl->AddRectFilled(mn, mx, IM_COL32(35, 38, 42, 255), 2.0f);
+    if (pct > 0)
+        dl->AddRectFilled(mn, ImVec2(mn.x + (mx.x - mn.x) * pct, mx.y), col, 2.0f);
 }
 
-static const char* GetMachineIcon(Machine* m) {
-    if (dynamic_cast<DoughStretcher*>(m))   return "🫓";
-    if (dynamic_cast<SauceSpreader*>(m))    return "🥫";
-    if (dynamic_cast<CheeseSpreader*>(m))   return "🧀";
-    if (dynamic_cast<Cutter*>(m))           return "🔪";
-    if (dynamic_cast<Oven*>(m))             return "🔥";
-    if (dynamic_cast<ToppingApplier*>(m))   return "🍕";
-    if (dynamic_cast<PackagingMachine*>(m)) return "📦";
-    return "⚙️";
+void HealthHue(float pct, ImU32& out) {
+    if (pct < 0.3f)      out = IM_COL32(231, 76, 60, 255);
+    else if (pct < 0.8f) out = IM_COL32(241, 196, 15, 255);
+    else                 out = IM_COL32(46, 204, 113, 255);
+}
+
+} // namespace
+
+// =============================================================================
+void DashboardView::Render(const FactorySnap& snap, FactoryCmd& cmd)
+{
+    cmd.speed           = m_speedUI;
+    cmd.selectedMachine = m_selected;
+    if (m_firstFrame) m_speedUI = snap.speed > 0 ? snap.speed : 1;
+
+    RenderControl(snap, cmd);
+    RenderFloor(snap, cmd);
+    RenderInspector(snap, cmd);
+    RenderEventLog(snap, cmd);
+    RenderStatistics(snap, cmd);
+    RenderOrders(snap, cmd);
+
+    m_firstFrame = false;
 }
 
 // =============================================================================
-// DashboardView Implementation
+//  1) Simulation Control
 // =============================================================================
-
-void DashboardView::Init(PizzaFactoryModel* model, FactoryController* controller)
+void DashboardView::RenderControl(const FactorySnap& snap, FactoryCmd& cmd)
 {
-    m_model = model;
-    m_controller = controller;
-}
+    ImGui::SetNextWindowPos(ImVec2(8, 8), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(860, 96), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Simulation Control");
 
-void DashboardView::Render()
-{
-    if (!m_model || !m_controller) return;
-
-    ImGui::SetNextWindowSize(ImVec2(1250, 640), ImGuiCond_FirstUseEver);
-    ImGui::Begin("🍕 자동 피자 공장 운영 시뮬레이터 Dashboard");
-
-    // -------------------------------------------------------------------------
-    // Top Control and Stats Panel
-    // -------------------------------------------------------------------------
-    OrderManager* om = m_model->getOrderManager();
-    int completedCount = om->getCompletedOrders().size();
-    int failedCount = om->getFailedOrders().size();
-    int lostCount = m_model->getLostPizzas().size();
-    
-    int totalGold = 0;
-    for (Order* o : om->getCompletedOrders()) {
-        totalGold += o->getReward();
-    }
-
-    ImGui::TextColored(ImVec4(0.2f, 0.8f, 1.0f, 1.0f), "🏭 피자 공장 제어판");
-    ImGui::SameLine(180);
-
-    // Play/Pause Button
-    bool isRunning = m_model->getIsRunning();
-    if (isRunning) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.75f, 0.15f, 0.15f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.2f, 0.2f, 1.0f));
-        if (ImGui::Button("⏸ 일시정지 (Pause)")) {
-            m_controller->togglePlayPause();
-        }
+    if (snap.running) {
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.75f, 0.16f, 0.16f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.90f, 0.22f, 0.22f, 1.0f));
+        if (ImGui::Button("Pause", ImVec2(120, 0))) cmd.pause = true;
     } else {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.65f, 0.15f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
-        if (ImGui::Button("▶ 시작 (Start)")) {
-            m_controller->togglePlayPause();
-        }
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.15f, 0.62f, 0.25f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.78f, 0.32f, 1.0f));
+        if (ImGui::Button("Start", ImVec2(120, 0))) cmd.start = true;
     }
     ImGui::PopStyleColor(2);
-
-    ImGui::SameLine(320);
-    // Reset Button
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.4f, 0.1f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.5f, 0.1f, 1.0f));
-    if (ImGui::Button("🔄 리셋 (Reset)")) {
-        m_controller->resetSimulation();
-    }
-    ImGui::PopStyleColor(2);
-
-    ImGui::SameLine(430);
-    // Spawner toggle
-    bool spawn = m_model->getIsSpawningEnabled();
-    if (ImGui::Checkbox("자동 공급 (Spawner)", &spawn)) {
-        m_model->setIsSpawningEnabled(spawn);
-    }
-
-    ImGui::SameLine(610);
-    // Speed Slider
-    float speed = m_model->getSimulationSpeed();
-    ImGui::SetNextItemWidth(100);
-    if (ImGui::SliderFloat("속도", &speed, 0.1f, 5.0f, "%.1fx")) {
-        m_model->setSimulationSpeed(speed);
-    }
-
-    ImGui::SameLine(820);
-    ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "🪙 $%d", m_model->getTotalEarnings());
-    ImGui::SameLine(920);
-    ImGui::TextColored(ImVec4(0.2f, 0.9f, 0.4f, 1.0f), "✅ 납품: %d", completedCount);
-    ImGui::SameLine(1020);
-    ImGui::TextColored(ImVec4(0.9f, 0.3f, 0.2f, 1.0f), "❌ 초과: %d", failedCount);
-    ImGui::SameLine(1120);
-    ImGui::TextColored(ImVec4(0.8f, 0.6f, 0.5f, 1.0f), "⚙️ 고장: %d", m_model->getBreakdownCount());
-
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // -------------------------------------------------------------------------
-    // Left Canvas Child: dynamic snake pipeline graphic
-    // -------------------------------------------------------------------------
-
-    // Layout constants
-    const int   MACHINES_PER_ROW = 3;
-    const float SLOT_PX          = 50.0f;  // pixels per belt slot
-    const float MACHINE_R        = 45.0f;
-    const float ROW_DY           = 150.0f;
-    const float UTURN_DX         = 65.0f;
-    const float PAD_X            = 180.0f;
-    const float PAD_Y            = 90.0f;
-    const float SPAWNER_BELT_PX  = 60.0f;
-
-    const auto& pipeline = m_model->getPipeline();
-
-    // Collect non-conveyor machines (even indices) and their following belt
-    struct MachInfo { Machine* machine; int pipeIdx; ConveyorMachine* nextBelt; };
-    std::vector<MachInfo> machList;
-    for (int i = 0; i < (int)pipeline.size(); i += 2) {
-        ConveyorMachine* belt = (i + 1 < (int)pipeline.size())
-            ? dynamic_cast<ConveyorMachine*>(pipeline[i + 1]) : nullptr;
-        machList.push_back({pipeline[i], i, belt});
-    }
-    int N = (int)machList.size();
-
-    // Compute machine center positions (snake layout)
-    std::vector<ImVec2> centers(N);
-    {
-        float cx = PAD_X, cy = PAD_Y;
-        int dir = 1;
-        for (int i = 0; i < N; i++) {
-            centers[i] = {cx, cy};
-            if (i + 1 < N) {
-                float beltPx = machList[i].nextBelt
-                    ? machList[i].nextBelt->getLength() * SLOT_PX : SLOT_PX * 3;
-                bool lastInRow = ((i % MACHINES_PER_ROW) == MACHINES_PER_ROW - 1);
-                if (lastInRow) { cy += ROW_DY; dir *= -1; }
-                else           { cx += dir * (MACHINE_R * 2.0f + beltPx); }
-            }
-        }
-    }
-
-    // Spawner / counter positions
-    ImVec2 spawnerCenter = {centers[0].x - MACHINE_R - SPAWNER_BELT_PX - MACHINE_R, centers[0].y};
-    int    lastRow       = (N - 1) / MACHINES_PER_ROW;
-    int    lastDir       = (lastRow % 2 == 0) ? 1 : -1;
-    float  lastBeltPx    = machList[N-1].nextBelt
-        ? machList[N-1].nextBelt->getLength() * SLOT_PX : SLOT_PX * 3;
-    ImVec2 counterCenter = {
-        centers[N-1].x + lastDir * (MACHINE_R + lastBeltPx + MACHINE_R),
-        centers[N-1].y
-    };
-
-    // Compute canvas size to fit layout
-    float canvasW = 880.0f;
-    float canvasH = std::max(510.0f, PAD_Y + (float)((N-1)/MACHINES_PER_ROW) * ROW_DY + MACHINE_R + PAD_Y);
-
-    ImGui::BeginChild("FactoryCanvasChild", ImVec2(900, canvasH + 20.0f), true,
-                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove);
-    ImDrawList* drawList = ImGui::GetWindowDrawList();
-    ImVec2 origin        = ImGui::GetCursorScreenPos();
-
-    // Background + grid
-    drawList->AddRectFilled(origin, ImVec2(origin.x + canvasW, origin.y + canvasH), ImColor(30, 34, 40), 12.0f);
-    for (float g = 40.0f; g < canvasW; g += 40.0f)
-        drawList->AddLine(ImVec2(origin.x + g, origin.y), ImVec2(origin.x + g, origin.y + canvasH), ImColor(40, 45, 50, 100), 1.0f);
-    for (float g = 40.0f; g < canvasH; g += 40.0f)
-        drawList->AddLine(ImVec2(origin.x, origin.y + g), ImVec2(origin.x + canvasW, origin.y + g), ImColor(40, 45, 50, 100), 1.0f);
-
-    // Offset all positions by canvas origin
-    auto O = [&](ImVec2 p) { return ImVec2(origin.x + p.x, origin.y + p.y); };
-
-    // ── Draw belts ──────────────────────────────────────────────────────────
-    // Spawner → machine 0
-    DrawConveyorBelt(drawList, O({spawnerCenter.x + MACHINE_R, spawnerCenter.y}),
-                               O({centers[0].x - MACHINE_R,   centers[0].y}));
-
-    // Machine-to-machine belts
-    for (int i = 0; i + 1 < N; i++) {
-        if (!machList[i].nextBelt) continue;
-        int  row       = i / MACHINES_PER_ROW;
-        bool evenRow   = (row % 2 == 0);
-        int  rowDir    = evenRow ? 1 : -1;
-        bool lastInRow = ((i % MACHINES_PER_ROW) == MACHINES_PER_ROW - 1);
-        ImVec2 cA = centers[i], cB = centers[i + 1];
-
-        if (lastInRow) {
-            // U-turn: horizontal stub → vertical → horizontal stub (reverse)
-            float xTurn = cA.x + rowDir * (MACHINE_R + UTURN_DX);
-            DrawConveyorBelt(drawList, O({cA.x + rowDir * MACHINE_R, cA.y}), O({xTurn, cA.y}), !evenRow);
-            DrawConveyorBelt(drawList, O({xTurn, cA.y}),                      O({xTurn, cB.y}));
-            DrawConveyorBelt(drawList, O({xTurn, cB.y}), O({cB.x + rowDir * MACHINE_R, cB.y}), evenRow);
-        } else {
-            ImVec2 bStart = {cA.x + rowDir * MACHINE_R, cA.y};
-            ImVec2 bEnd   = {cB.x - rowDir * MACHINE_R, cB.y};
-            DrawConveyorBelt(drawList, O(bStart), O(bEnd), !evenRow);
-        }
-    }
-
-    // Last machine → counter
-    DrawConveyorBelt(drawList,
-        O({centers[N-1].x + lastDir * MACHINE_R, centers[N-1].y}),
-        O({counterCenter.x - lastDir * MACHINE_R, counterCenter.y}),
-        lastDir < 0);
-
-    // ── Draw pizzas on belts ─────────────────────────────────────────────────
-    auto pizzaOnLine = [](int slot, int len, ImVec2 a, ImVec2 b) -> ImVec2 {
-        float t = (slot + 0.5f) / len;
-        return {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t};
-    };
-    auto pizzaOnUturn = [&](int slot, int len, ImVec2 cA, ImVec2 cB, int dir) -> ImVec2 {
-        float t      = (slot + 0.5f) / len;
-        float xTurn  = cA.x + dir * (MACHINE_R + UTURN_DX);
-        float seg1   = UTURN_DX, seg2 = fabsf(cB.y - cA.y), seg3 = UTURN_DX;
-        float dist   = t * (seg1 + seg2 + seg3);
-        if (dist < seg1)          return {cA.x + dir * (MACHINE_R + dist),       cA.y};
-        if (dist < seg1 + seg2)   return {xTurn,                                  cA.y + (dist - seg1)};
-        return {xTurn - dir * (dist - seg1 - seg2), cB.y};
-    };
-
-    for (int i = 0; i < N; i++) {
-        if (!machList[i].nextBelt) continue;
-        const auto& slots  = machList[i].nextBelt->getBelt();
-        int         len    = (int)slots.size();
-        int         row    = i / MACHINES_PER_ROW;
-        bool        evenRow = (row % 2 == 0);
-        int         rowDir  = evenRow ? 1 : -1;
-        bool        lastInRow = ((i % MACHINES_PER_ROW) == MACHINES_PER_ROW - 1) && (i + 1 < N);
-        bool        isLast    = (i == N - 1);
-
-        for (int s = 0; s < len; s++) {
-            if (!slots[s]) continue;
-            ImVec2 pos;
-            if (isLast) {
-                pos = O(pizzaOnLine(s, len,
-                    {centers[i].x + lastDir * MACHINE_R, centers[i].y},
-                    {counterCenter.x - lastDir * MACHINE_R, counterCenter.y}));
-            } else if (lastInRow) {
-                pos = O(pizzaOnUturn(s, len, centers[i], centers[i + 1], rowDir));
-            } else {
-                pos = O(pizzaOnLine(s, len,
-                    {centers[i].x + rowDir * MACHINE_R,     centers[i].y},
-                    {centers[i+1].x - rowDir * MACHINE_R,   centers[i+1].y}));
-            }
-            DrawPizza(drawList, pos, slots[s]);
-        }
-    }
-
-    // ── Draw spawner & counter ───────────────────────────────────────────────
-    DrawDoughStorageVisual(drawList, O(spawnerCenter));
-    DrawCounterVisual(drawList, O(counterCenter), m_model);
-
-    // ── Draw machines ────────────────────────────────────────────────────────
-    for (int i = 0; i < N; i++) {
-        const char* nameKo = GetMachineNameKo(machList[i].machine);
-        const char* icon   = GetMachineIcon(machList[i].machine);
-        if (DrawMachineNode(drawList, O(centers[i]), machList[i].machine, nameKo, icon, machList[i].pipeIdx)) {
-            if (m_selectedMachineIdx == machList[i].pipeIdx) {
-                m_selectedMachineIdx = -1;
-            } else {
-                m_selectedMachineIdx = machList[i].pipeIdx;
-                m_settingsPanelPos   = ImVec2(O(centers[i]).x + 52, O(centers[i]).y - 50);
-            }
-        }
-    }
-
-    drawList->AddText(ImGui::GetFont(), 13.0f, ImVec2(origin.x + 15, origin.y + canvasH - 20),
-                      ImColor(150, 160, 170), "💡 좌클릭: 기계 설정 | 우클릭: 전원 ON/OFF");
-
-    ImGui::EndChild();
-
-    // 머신 설정 패널 (선택된 머신이 있을 때만)
-    RenderMachineSettingsPanel();
 
     ImGui::SameLine();
+    if (ImGui::Button("Reset", ImVec2(90, 0))) cmd.reset = true;
 
-    // -------------------------------------------------------------------------
-    // Right Panel: Active Order Board Slips
-    // -------------------------------------------------------------------------
-    ImGui::BeginChild("OrderSlipsChild", ImVec2(320, 530), true);
-    ImGui::TextColored(ImVec4(0.95f, 0.9f, 0.6f, 1.0f), "🛎️ 주문서 대기열 (Active Orders)");
-    ImGui::Separator();
-    ImGui::Spacing();
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(180);
+    if (ImGui::SliderInt("Speed", &m_speedUI, 1, 5, "%dx")) cmd.speed = m_speedUI;
 
-    const std::vector<Order*>& activeOrders = om->getActiveOrders();
-    if (activeOrders.empty()) {
-        ImGui::Text("대기 중인 주문이 없습니다.");
-        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "(Spawner 스위치를 켜면");
-        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), " 주문이 들어오기 시작합니다)");
-    } else {
-        for (int i = 0; i < (int)activeOrders.size(); ++i) {
-            Order* o = activeOrders[i];
-            
-            char slipId[64];
-            snprintf(slipId, sizeof(slipId), "slip_%d", o->getId());
-            
-            // Draw a paper-like white container
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.95f, 0.95f, 0.95f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
-            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
-            
-            ImGui::BeginChild(slipId, ImVec2(0, 140), true, ImGuiWindowFlags_NoScrollbar);
-            
-            // Order Header
-            ImGui::Text("📝 주문서 #%d", o->getId());
-            ImGui::SameLine(180);
-            ImGui::TextColored(ImVec4(0.85f, 0.6f, 0.0f, 1.0f), "🪙 $%d", o->getReward());
-            ImGui::Separator();
-            
-            // Display Requirements
-            ImGui::Text("크기: %s", (o->getRequiredSize() == PizzaSize::SMALL ? "Small (S)" : 
-                                    (o->getRequiredSize() == PizzaSize::MEDIUM ? "Medium (M)" : "Large (L)")));
-            
-            // Show Colored Badges (Pills)
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 2));
-            
-            if (o->getRequiresSauce()) {
-                ImGui::Button("🥫 소스"); ImGui::SameLine();
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(200);
+    std::vector<const char*> names;
+    names.reserve(snap.scenarioNames.size());
+    for (const auto& s : snap.scenarioNames) names.push_back(s.c_str());
+    int cur = snap.scenario;
+    if (!names.empty() &&
+        ImGui::Combo("Scenario", &cur, names.data(), (int)names.size()))
+        cmd.scenario = cur;
+
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.7f, 0.78f, 0.85f, 1.0f), "Tick %ld", snap.tick);
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "$ %d", snap.money);
+
+    ImGui::End();
+}
+
+// =============================================================================
+//  2) Factory Floor — station 스네이크 + 직선/반원 벨트 캔버스
+// =============================================================================
+void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
+{
+    (void)cmd;
+    ImGui::SetNextWindowPos(ImVec2(8, 112), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(860, 364), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Factory Floor", nullptr, ImGuiWindowFlags_HorizontalScrollbar);
+
+    const auto& M = snap.machines;
+    const int   N = (int)M.size();
+
+    // 비-벨트 머신(station) 의 파이프라인 인덱스
+    std::vector<int> st;
+    for (int i = 0; i < N; ++i) if (!M[i].isConveyor) st.push_back(i);
+    const int S = (int)st.size();
+
+    // 레이아웃 상수
+    const int   perRow  = 4;
+    const float nodeR   = 34.0f, cellW = 152.0f;
+    const float marginX = 72.0f, marginTop = 50.0f, rowH = 122.0f;
+    const float arcR    = rowH * 0.5f;
+    const float rightmost = marginX + nodeR + (perRow - 1) * cellW;
+
+    auto stCenter = [&](int si) -> ImVec2 {
+        int row = si / perRow, col = si % perRow;
+        bool ltr = (row % 2 == 0);
+        float cx = ltr ? (marginX + nodeR + col * cellW) : (rightmost - col * cellW);
+        float cy = marginTop + nodeR + row * rowH;
+        return ImVec2(cx, cy);
+    };
+    auto stDir = [&](int si) { return ((si / perRow) % 2 == 0) ? 1 : -1; };  // +1 LTR, -1 RTL
+
+    int   rows    = (S + perRow - 1) / perRow;
+    float canvasW = rightmost + nodeR + arcR + 26.0f;
+    float availW  = ImGui::GetContentRegionAvail().x;
+    if (canvasW < availW) canvasW = availW;
+    float canvasH = marginTop + rows * rowH + 6.0f;
+
+    ImVec2 origin = ImGui::GetCursorScreenPos();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    auto O = [&](ImVec2 p) { return ImVec2(origin.x + p.x, origin.y + p.y); };
+
+    // 배경 + 그리드
+    dl->AddRectFilled(origin, ImVec2(origin.x + canvasW, origin.y + canvasH), IM_COL32(28,32,38,255), 10.0f);
+    for (float g = 36; g < canvasW; g += 36)
+        dl->AddLine(ImVec2(origin.x+g, origin.y), ImVec2(origin.x+g, origin.y+canvasH), IM_COL32(40,45,50,80));
+    for (float g = 36; g < canvasH; g += 36)
+        dl->AddLine(ImVec2(origin.x, origin.y+g), ImVec2(origin.x+canvasW, origin.y+g), IM_COL32(40,45,50,80));
+
+    // ── 벨트(station 사이) ──
+    struct BeltHit { int idx; ImVec2 mn, mx; };   // 클릭 영역 (벨트도 선택 가능)
+    std::vector<BeltHit> beltHits;
+    const ImU32 selCol = IM_COL32(255, 214, 64, 255);
+    for (int si = 0; si + 1 < S; ++si) {
+        int  beltIdx = st[si] + 1;
+        bool hasBelt = (beltIdx < st[si+1]) && M[beltIdx].isConveyor;
+        const MachineSnap* belt = hasBelt ? &M[beltIdx] : nullptr;
+        int   len = belt ? (int)belt->conveyor.slots.size() : 0;
+        float mp  = belt ? belt->conveyor.moveProgress : 0.0f;
+        bool  brk = belt && belt->state == MachineState::BROKEN;
+        ImVec2 A = stCenter(si), B = stCenter(si + 1);
+        int    dA = stDir(si);
+        bool sameRow = (si / perRow) == ((si + 1) / perRow);
+
+        if (sameRow) {
+            ImVec2 a = O(ImVec2(A.x + dA*nodeR, A.y));
+            ImVec2 b = O(ImVec2(B.x - dA*nodeR, B.y));
+            DrawBelt(dl, a, b, dA < 0);
+            if (brk) dl->AddLine(a, b, IM_COL32(200,40,40,90), 26.0f);
+            if (hasBelt) {
+                ImVec2 mn(std::min(a.x, b.x), a.y - 16), mx(std::max(a.x, b.x), a.y + 16);
+                beltHits.push_back({beltIdx, mn, mx});
+                if (beltIdx == m_selected) dl->AddRect(mn, mx, selCol, 8.0f, 0, 2.5f);
             }
-            if (o->getRequiresCheese()) {
-                ImGui::Button("🧀 치즈"); ImGui::SameLine();
+            for (int s = 0; s < len; ++s) {
+                if (!belt->conveyor.slots[s].occupied) continue;
+                float t = (s + 0.5f + mp) / len; if (t > 1.05f) t = 1.05f;
+                DrawPizza(dl, ImVec2(a.x + (b.x-a.x)*t, a.y + (b.y-a.y)*t), belt->conveyor.slots[s].pizza);
             }
-            if (o->getRequiresBake()) {
-                ImGui::Button("🔥 굽기"); ImGui::SameLine();
+        } else {
+            int   side  = (dA > 0) ? 1 : -1;                 // 우측 LTR / 좌측 RTL
+            float edgeX = A.x + side * nodeR;
+            float midY  = (A.y + B.y) * 0.5f;
+            ImVec2 c    = O(ImVec2(edgeX, midY));
+            float a0 = -kPi * 0.5f;                          // -90° (위, A)
+            float a1 = (side > 0) ? (kPi * 0.5f)             // 우측 반원: +90°
+                                  : (-kPi * 1.5f);           // 좌측 반원: -270°
+            DrawBeltArc(dl, c, arcR, a0, a1, dA < 0);
+            if (hasBelt) {
+                float x1 = c.x + side * (arcR + 16.0f);
+                ImVec2 mn(std::min(c.x, x1), c.y - arcR - 16), mx(std::max(c.x, x1), c.y + arcR + 16);
+                beltHits.push_back({beltIdx, mn, mx});
+                if (beltIdx == m_selected) {
+                    dl->PathArcTo(c, arcR + 16.0f, a0, a1, 24); dl->PathStroke(selCol, 0, 2.5f);
+                    dl->PathArcTo(c, arcR - 16.0f, a0, a1, 24); dl->PathStroke(selCol, 0, 2.5f);
+                }
             }
-            if (o->getRequiresCut()) {
-                ImGui::Button("🔪 컷팅"); ImGui::SameLine();
+            for (int s = 0; s < len; ++s) {
+                if (!belt->conveyor.slots[s].occupied) continue;
+                float t = (s + 0.5f + mp) / len; if (t > 1.05f) t = 1.05f;
+                float g = a0 + (a1 - a0) * t;
+                DrawPizza(dl, ImVec2(c.x + arcR*std::cos(g), c.y + arcR*std::sin(g)),
+                          belt->conveyor.slots[s].pizza);
             }
-            if (o->getRequiresTopping()) {
-                ImGui::Button("🍕 토핑");
-            }
-            
-            ImGui::PopStyleVar(2);
-            ImGui::Spacing();
-            
-            // Time Left progress bar
-            float totalExpectedLimit = 3000.0f; // Max estimated base frames
-            float pct = (float)o->getTimeLeft() / totalExpectedLimit;
-            if (pct > 1.0f) pct = 1.0f;
-            else if (pct < 0.0f) pct = 0.0f;
-            
-            ImVec4 barColor = ImVec4(0.18f, 0.8f, 0.44f, 1.0f); // Green
-            if (pct < 0.3f) barColor = ImVec4(0.9f, 0.17f, 0.15f, 1.0f); // Red
-            else if (pct < 0.6f) barColor = ImVec4(0.95f, 0.77f, 0.06f, 1.0f); // Yellow
-            
-            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, barColor);
-            char timeText[32];
-            snprintf(timeText, sizeof(timeText), "남은 시간: %.1fs", (float)o->getTimeLeft() / 60.0f);
-            ImGui::ProgressBar(pct, ImVec2(-1, 14), timeText);
-            ImGui::PopStyleColor();
-            
-            ImGui::EndChild();
-            ImGui::PopStyleVar();
-            ImGui::PopStyleColor(2);
-            ImGui::Spacing();
         }
     }
 
+    // ── station 노드 ──
+    auto drawNode = [&](int si) {
+        const MachineSnap& m = M[st[si]];
+        ImVec2 c = O(stCenter(si));
+        ImVec2 mn(c.x - nodeR, c.y - nodeR), mx(c.x + nodeR, c.y + nodeR);
+
+        ImU32 bg = IM_COL32(38, 48, 58, 255), bd = IM_COL32(110, 120, 130, 255);
+        float bw = 2.0f;
+        switch (m.state) {
+            case MachineState::WORKING: bd = IM_COL32(46, 204, 113, 255); break;
+            case MachineState::IDLE:    bd = IM_COL32(52, 152, 219, 255); break;
+            case MachineState::OFF:     bg = IM_COL32(26, 30, 34, 255); bd = IM_COL32(70, 75, 80, 255); break;
+            case MachineState::BROKEN: {
+                float pulse = 0.5f + 0.5f * std::sin((float)ImGui::GetTime() * 11.0f);
+                bd = IM_COL32(255, (int)(40 + 70*pulse), (int)(40 + 70*pulse), 255); bw = 3.0f;
+            } break;
+        }
+        dl->AddRectFilled(mn, mx, bg, 11.0f);
+        dl->AddRect(mn, mx, bd, 11.0f, 0, bw);
+        if (st[si] == m_selected)
+            dl->AddRect(ImVec2(mn.x-3, mn.y-3), ImVec2(mx.x+3, mx.y+3), IM_COL32(255, 214, 64, 255), 13.0f, 0, 2.5f);
+
+        ImVec2 ts = ImGui::CalcTextSize(m.name.c_str());
+        dl->AddText(ImVec2(c.x - ts.x*0.5f, c.y - nodeR - 16),
+                    m.state == MachineState::OFF ? IM_COL32(120,125,130,255) : IM_COL32(225,235,245,255),
+                    m.name.c_str());
+
+        if (m.state == MachineState::BROKEN) {
+            // 폰트 비의존 "고장" 표시: 빨간 X 를 선으로 직접 그린다.
+            float k = 11.0f;
+            dl->AddLine(ImVec2(c.x-k, c.y-3-k), ImVec2(c.x+k, c.y-3+k), IM_COL32(255,70,70,255), 3.0f);
+            dl->AddLine(ImVec2(c.x-k, c.y-3+k), ImVec2(c.x+k, c.y-3-k), IM_COL32(255,70,70,255), 3.0f);
+        } else if (m.hasPizzaInside) {
+            DrawPizza(dl, ImVec2(c.x, c.y - 3), m.pizzaInside);
+        } else {
+            dl->AddCircle(ImVec2(c.x, c.y - 3), 12.0f, IM_COL32(70, 78, 88, 180), 0, 1.5f);
+        }
+
+        ImU32 hcol; HealthHue(m.healthPct, hcol);
+        DrawBar(dl, ImVec2(c.x-28, c.y+nodeR-15), ImVec2(c.x+28, c.y+nodeR-11), m.progressPct, IM_COL32(80, 170, 240, 255));
+        DrawBar(dl, ImVec2(c.x-28, c.y+nodeR-8),  ImVec2(c.x+28, c.y+nodeR-4),  m.healthPct,   hcol);
+    };
+    for (int si = 0; si < S; ++si) drawNode(si);
+
+    // ── 입고 / 출고 표식 ──
+    if (S > 0) {
+        ImVec2 in = O(stCenter(0));
+        dl->AddText(ImVec2(in.x - nodeR - 34, in.y - 8), IM_COL32(150, 200, 150, 255), "IN");
+        ImVec2 oc = O(stCenter(S - 1));
+        int dL = stDir(S - 1);
+        char buf[48]; std::snprintf(buf, sizeof(buf), "OUT %d", snap.finishedGoods);
+        float ox = (dL > 0) ? (oc.x + nodeR + 6) : (oc.x - nodeR - 64);
+        dl->AddText(ImVec2(ox, oc.y - 8), IM_COL32(255, 210, 120, 255), buf);
+    }
+
+    // ── 클릭 영역(InvisibleButton) → 선택 토글 ──
+    for (int si = 0; si < S; ++si) {
+        ImVec2 c = O(stCenter(si));
+        ImGui::SetCursorScreenPos(ImVec2(c.x - nodeR, c.y - nodeR));
+        ImGui::PushID(st[si]);
+        if (ImGui::InvisibleButton("##node", ImVec2(nodeR*2, nodeR*2)))
+            m_selected = (m_selected == st[si]) ? -1 : st[si];
+        ImGui::PopID();
+    }
+    for (const BeltHit& bh : beltHits) {
+        ImGui::SetCursorScreenPos(bh.mn);
+        ImGui::PushID(2000 + bh.idx);
+        if (ImGui::InvisibleButton("##belt", ImVec2(bh.mx.x - bh.mn.x, bh.mx.y - bh.mn.y)))
+            m_selected = (m_selected == bh.idx) ? -1 : bh.idx;
+        ImGui::PopID();
+    }
+
+    ImGui::SetCursorScreenPos(origin);
+    ImGui::Dummy(ImVec2(canvasW, canvasH));
+
+    // ── 머신 목록: Selectable + 상태색 + 부하/진행 ProgressBar ──
+    ImGui::Spacing();
+    ImGui::TextDisabled("Machines  (click a row to select)");
+    for (int i = 0; i < N; ++i) {
+        const MachineSnap& m = M[i];
+        ImGui::PushID(1000 + i);
+        bool sel = (i == m_selected);
+        if (ImGui::Selectable("##row", sel, 0, ImVec2(0, 22)))
+            m_selected = sel ? -1 : i;
+        ImGui::SameLine(8);   ImGui::TextUnformatted(m.name.c_str());
+        ImGui::SameLine(150); ImGui::TextColored(StateColor(m.state), "%s", StateLabel(m.state));
+        ImGui::SameLine(210);
+        float frac; char ov[32];
+        if (m.isConveyor) {
+            int cap = std::max(1, (int)m.conveyor.slots.size());
+            frac = (float)m.queueDepth / cap;
+            std::snprintf(ov, sizeof(ov), "load %d/%d", m.queueDepth, cap);
+        } else {
+            frac = m.progressPct;
+            std::snprintf(ov, sizeof(ov), "%d%%", (int)(m.progressPct * 100));
+        }
+        ImGui::SetNextItemWidth(-1);
+        ImGui::ProgressBar(frac, ImVec2(-1, 16), ov);
+        ImGui::PopID();
+    }
+
+    ImGui::End();
+}
+
+// =============================================================================
+//  3) Inspector
+// =============================================================================
+void DashboardView::RenderInspector(const FactorySnap& snap, FactoryCmd& cmd)
+{
+    ImGui::SetNextWindowPos(ImVec2(8, 484), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(425, 228), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Inspector");
+
+    if (m_selected < 0 || m_selected >= (int)snap.machines.size()) {
+        ImGui::TextDisabled("Select a machine.");
+        ImGui::TextDisabled("(click a node or belt in Factory Floor)");
+        ImGui::End();
+        return;
+    }
+
+    const MachineSnap& m = snap.machines[m_selected];
+    ImGui::Text("#%d  %s", m.id, m.name.c_str());
+    ImGui::SameLine();
+    ImGui::TextColored(StateColor(m.state), "[%s]", StateLabel(m.state));
+    ImGui::Separator();
+
+    // ── 상태 (읽기 전용) ──
+    char ov[40];
+    if (m.isConveyor) {
+        int cap = std::max(1, (int)m.conveyor.slots.size());
+        std::snprintf(ov, sizeof(ov), "load %d/%d", m.queueDepth, cap);
+        ImGui::ProgressBar((float)m.queueDepth / cap, ImVec2(-1, 14), ov);
+    } else {
+        std::snprintf(ov, sizeof(ov), "progress %d%%", (int)(m.progressPct * 100));
+        ImGui::ProgressBar(m.progressPct, ImVec2(-1, 14), ov);
+    }
+    ImGui::Text("queue %d    output %d", m.queueDepth, m.outputCount);
+
+    // ── 설정 (조절 → cmd.tune, 다음 틱에 반영) ──
+    ImGui::Separator();
+    ImGui::TextDisabled("Settings (applied live)");
+
+    float healthUI = m.healthPct * 100.0f;
+    if (ImGui::SliderFloat("Health", &healthUI, 0.0f, 100.0f, "%.0f%%"))
+        cmd.tune.healthPct = healthUI / 100.0f;
+
+    if (m.isConveyor) {
+        float bs = m.beltSpeed;
+        if (ImGui::SliderFloat("Belt speed", &bs, 0.05f, 1.0f, "%.2f slot/tick"))
+            cmd.tune.beltSpeed = bs;
+    } else {
+        int pt = m.processTicks;
+        if (ImGui::SliderInt("Proc time", &pt, 1, 20, "%d ticks"))
+            cmd.tune.processTicks = pt;
+    }
+
+    float bp = m.breakProb * 100.0f;
+    if (ImGui::SliderFloat("Break odds", &bp, 0.0f, 5.0f, "%.2f%%/tick"))
+        cmd.tune.breakProb = bp / 100.0f;
+
+    ImGui::Spacing();
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.20f, 0.18f, 1.0f));
+    if (ImGui::Button("Force Break", ImVec2(150, 0))) cmd.forceBreak = true;
+    ImGui::PopStyleColor();
+    ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.16f, 0.50f, 0.30f, 1.0f));
+    if (ImGui::Button("Instant Repair", ImVec2(150, 0))) cmd.instantRepair = true;
+    ImGui::PopStyleColor();
+
+    ImGui::End();
+}
+
+// =============================================================================
+//  4) Event Log
+// =============================================================================
+void DashboardView::RenderEventLog(const FactorySnap& snap, FactoryCmd& cmd)
+{
+    ImGui::SetNextWindowPos(ImVec2(441, 484), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(427, 228), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Event Log");
+
+    if (ImGui::Button("Clear")) cmd.clearLog = true;
+    ImGui::SameLine();
+    ImGui::Checkbox("Auto-scroll", &m_autoScroll);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(%d)", (int)snap.eventLog.size());
+    ImGui::Separator();
+
+    ImGui::BeginChild("logScroll", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+    for (const auto& line : snap.eventLog)
+        ImGui::TextUnformatted(line.c_str());
+    if (m_autoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f)
+        ImGui::SetScrollHereY(1.0f);
     ImGui::EndChild();
 
     ImGui::End();
 }
 
-void DashboardView::RenderMachineSettingsPanel()
+// =============================================================================
+//  5) Statistics
+// =============================================================================
+void DashboardView::RenderStatistics(const FactorySnap& snap, FactoryCmd& cmd)
 {
-    if (m_selectedMachineIdx < 0) return;
+    (void)cmd;
+    ImGui::SetNextWindowPos(ImVec2(876, 8), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(396, 190), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Statistics");
 
-    const auto& pipeline = m_model->getPipeline();
-    if (m_selectedMachineIdx >= (int)pipeline.size()) return;
+    ImGui::TextColored(ImVec4(0.3f, 0.9f, 0.45f, 1.0f), "finished goods : %d", snap.finishedGoods);
+    ImGui::TextColored(ImVec4(0.5f, 0.75f, 1.0f, 1.0f),  "WIP count      : %d", snap.wipCount);
+    ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.3f, 1.0f),   "breakdowns     : %d", snap.totalBreakdowns);
+    ImGui::TextColored(ImVec4(0.95f, 0.35f, 0.3f, 1.0f), "lost products  : %d", snap.lostProducts);
+    ImGui::Separator();
+    ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f),  "earnings       : $ %d", snap.money);
+    ImGui::Text("active orders  : %d", (int)snap.orders.size());
+    ImGui::Text("tick           : %ld  (x%d)", snap.tick, snap.speed);
 
-    Machine* machine = pipeline[m_selectedMachineIdx];
-    if (!machine) return;
-
-    // 머신 인덱스로 이름 찾기
-    const char* nameKo = GetMachineNameKo(machine);
-
-    ImGui::SetNextWindowPos(m_settingsPanelPos, ImGuiCond_Appearing);
-    ImGui::SetNextWindowSize(ImVec2(200, 0), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.95f);
-
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar
-                           | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
-
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 12.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.88f, 0.88f, 0.90f, 0.97f));
-
-    if (ImGui::Begin("##MachineSettings", nullptr, flags)) {
-
-        // 타이틀 버튼
-        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.78f, 0.78f, 0.82f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.78f, 0.78f, 0.82f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.78f, 0.78f, 0.82f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-        ImGui::SetNextItemWidth(-1);
-        ImGui::Button("머신 설정", ImVec2(-1, 0));
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor(4);
-
-        ImGui::Spacing();
-
-        // 듀라빌리티 라벨 + 바
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.05f, 0.05f, 0.05f, 1.0f));
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 4));
-
-        ImGui::Button("듀라빌리티", ImVec2(-1, 0));
-        ImGui::PopStyleVar(2);
-        ImGui::PopStyleColor();
-
-        float durPct = machine->getDurability() / machine->getMaxDurability();
-        if (durPct < 0.0f) durPct = 0.0f;
-        if (durPct > 1.0f) durPct = 1.0f;
-        ImVec4 barColor = (durPct > 0.6f) ? ImVec4(0.15f, 0.85f, 0.25f, 1.0f)
-                        : (durPct > 0.3f) ? ImVec4(0.95f, 0.75f, 0.05f, 1.0f)
-                                          : ImVec4(0.9f, 0.15f, 0.15f, 1.0f);
-        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, barColor);
-        ImGui::ProgressBar(durPct, ImVec2(-1, 10), "");
-        ImGui::PopStyleColor();
-
-        ImGui::Spacing();
-
-        // Speed 설정
-        {
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.95f, 0.95f, 0.97f, 1.0f));
-            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
-            ImGui::BeginChild("##speedBox", ImVec2(-1, 60), true, ImGuiWindowFlags_NoScrollbar);
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
-            ImGui::Text("SPEED");
-            float spd = machine->getSpeed();
-            ImGui::SetNextItemWidth(80);
-            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-            if (ImGui::InputFloat("##spd", &spd, 0.5f, 1.0f, "%.1f")) {
-                if (spd < 0.1f) spd = 0.1f;
-                if (spd > 10.0f) spd = 10.0f;
-                machine->setSpeed(spd);
-            }
-            ImGui::PopStyleColor(3);
-            ImGui::EndChild();
-            ImGui::PopStyleVar();
-        }
-
-        ImGui::Spacing();
-
-        // Capacity / Length 설정
-        {
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.95f, 0.95f, 0.97f, 1.0f));
-            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
-            ImGui::BeginChild("##capBox", ImVec2(-1, 60), true, ImGuiWindowFlags_NoScrollbar);
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
-
-            if (auto* ncm = dynamic_cast<NonConveyorMachine*>(machine)) {
-                ImGui::Text("CAPACITY");
-                int cap = ncm->getCapacity();
-                ImGui::SetNextItemWidth(80);
-                ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-                if (ImGui::InputInt("##cap", &cap)) {
-                    if (cap < 1) cap = 1;
-                    if (cap > 8) cap = 8;
-                    ncm->setCapacity(cap);
-                }
-                ImGui::PopStyleColor();
-            } else if (auto* cm = dynamic_cast<ConveyorMachine*>(machine)) {
-                ImGui::Text("LENGTH");
-                ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-                ImGui::Text("%d slots", cm->getLength());
-                ImGui::PopStyleColor();
-            }
-
-            ImGui::PopStyleColor(2);
-            ImGui::EndChild();
-            ImGui::PopStyleVar();
-        }
-
-        // 머신별 추가 설정
-        if (auto* stretcher = dynamic_cast<DoughStretcher*>(machine)) {
-            ImGui::Spacing();
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
-            ImGui::Text("도우 크기:");
-            int sz = (int)stretcher->getTargetSize();
-            if (ImGui::RadioButton("S##sz", sz == 0)) stretcher->setTargetSize(PizzaSize::SMALL);
-            ImGui::SameLine();
-            if (ImGui::RadioButton("M##sz", sz == 1)) stretcher->setTargetSize(PizzaSize::MEDIUM);
-            ImGui::SameLine();
-            if (ImGui::RadioButton("L##sz", sz == 2)) stretcher->setTargetSize(PizzaSize::LARGE);
-            ImGui::PopStyleColor();
-        } else if (auto* oven = dynamic_cast<Oven*>(machine)) {
-            ImGui::Spacing();
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
-            float temp = oven->getTemperature();
-            ImGui::SetNextItemWidth(-1);
-            if (ImGui::SliderFloat("##temp", &temp, 150.0f, 350.0f, "%.0f°C")) {
-                oven->setTemperature(temp);
-            }
-            ImGui::PopStyleColor();
-        } else if (auto* cutter = dynamic_cast<Cutter*>(machine)) {
-            ImGui::Spacing();
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
-            int slices = cutter->getSliceCount();
-            ImGui::SetNextItemWidth(-1);
-            if (ImGui::SliderInt("##slices", &slices, 4, 12, "%d 조각")) {
-                if (slices % 2 != 0) slices++;
-                cutter->setSliceCount(slices);
-            }
-            ImGui::PopStyleColor();
-        }
-
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        // 브레이크 다운 버튼
-        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.85f, 0.85f, 0.88f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.95f, 0.70f, 0.70f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-        if (ImGui::Button("브레이크 다운", ImVec2(-1, 0))) {
-            m_controller->forceBreakMachine(m_selectedMachineIdx);
-        }
-        ImGui::Spacing();
-        // 즉시 리페어 버튼
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.65f, 0.90f, 0.70f, 1.0f));
-        if (ImGui::Button("즉시 리페어", ImVec2(-1, 0))) {
-            m_controller->instantRepairMachine(m_selectedMachineIdx);
-        }
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor(4);
-    }
     ImGui::End();
+}
 
-    ImGui::PopStyleColor();
-    ImGui::PopStyleVar(2);
+// =============================================================================
+//  6) Orders (게임화 보너스)
+// =============================================================================
+void DashboardView::RenderOrders(const FactorySnap& snap, FactoryCmd& cmd)
+{
+    (void)cmd;
+    ImGui::SetNextWindowPos(ImVec2(876, 206), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(396, 506), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Orders");
+
+    if (snap.orders.empty()) {
+        ImGui::TextDisabled("No active orders.");
+        ImGui::TextDisabled("Orders arrive once you press Start.");
+        ImGui::End();
+        return;
+    }
+
+    for (const OrderSnap& o : snap.orders) {
+        ImGui::PushID(o.id);
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.16f, 0.17f, 0.20f, 1.0f));
+        ImGui::BeginChild("slip", ImVec2(0, 64), true, ImGuiWindowFlags_NoScrollbar);
+
+        ImGui::TextUnformatted(o.desc.c_str());
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "$%d", o.reward);
+
+        float frac = o.ticksLeft / 600.0f;
+        if (frac > 1.0f) frac = 1.0f;
+        if (frac < 0.0f) frac = 0.0f;
+        ImU32 bc = (frac > 0.6f) ? IM_COL32(46,204,113,255)
+                 : (frac > 0.3f) ? IM_COL32(241,196,15,255)
+                                 : IM_COL32(231,76,60,255);
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImColor(bc).Value);
+        char ov[32]; std::snprintf(ov, sizeof(ov), "%d ticks", o.ticksLeft);
+        ImGui::ProgressBar(frac, ImVec2(-1, 14), ov);
+        ImGui::PopStyleColor();
+
+        ImGui::EndChild();
+        ImGui::PopStyleColor();
+        ImGui::PopID();
+        ImGui::Spacing();
+    }
+
+    ImGui::End();
 }
