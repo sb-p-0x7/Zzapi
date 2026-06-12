@@ -47,6 +47,13 @@ public:
         for (Machine* m : m_pipeline)
             if (m->displayName() == name) m->setProcessTicks(ticks);
     }
+    void setBreakdownProbExceptFirst(float p) {
+        for(int i=1; i<(int)m_pipeline.size(); ++i) {
+            m_pipeline[i]->setBreakdownProb(p);
+        }
+    }
+
+    void setAllConveyorLength(int len);
 
     // ── view가 읽는 출력 ──
     FactorySnap snapshot() const;

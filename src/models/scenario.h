@@ -23,12 +23,6 @@ public:
     virtual void        apply(Factory& f) const = 0;
 };
 
-class FreePlay : public Scenario {
-public:
-    std::string name() const override { return "Free Play"; }
-    void        apply(Factory& f) const override;
-};
-
 class NormalFlow : public Scenario {
 public:
     std::string name() const override { return "Normal flow"; }
@@ -44,6 +38,12 @@ public:
 class Bottleneck : public Scenario {
 public:
     std::string name() const override { return "Bottleneck"; }
+    void        apply(Factory& f) const override;
+};
+
+class Overflow : public Scenario {
+public:
+    std::string name() const override { return "Overflow"; }
     void        apply(Factory& f) const override;
 };
 
