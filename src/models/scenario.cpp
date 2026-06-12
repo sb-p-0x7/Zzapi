@@ -21,8 +21,9 @@ void RandomBreakdown::apply(Factory& f) const {
 
 void Bottleneck::apply(Factory& f) const {
     f.setAllBreakdownProb(0.0f);
-    f.setSpawnInterval(12);                     // 투입 증가
-    f.setProcessTicksByName("Oven", 20);        // 오븐을 느리게 → 앞단 백업(병목)
+    f.setSpawnInterval(15);                     // 투입을 빠르게(라인을 가득 채워 적체 부각)
+    f.setProcessTicksByName("Oven", 40);        // 오븐만 매우 느리게 → 처리량이 오븐에 묶이고
+                                                // 앞단 벨트/머신이 가득 차 백업(병목)
 }
 
 // =============================================================================
