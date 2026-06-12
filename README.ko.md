@@ -141,6 +141,8 @@ IN ▸ Dough Stretcher → [Conveyor] → Sauce → Cheese → Topping → Oven 
 - **Free Play** — 기본 게임 모드, 약한 고장 확률.
 - **Normal flow** — 균형 잡힌 파이프라인, 고장 없음.
 - **Random breakdowns** — 고장 확률 상향.
+- **Bottleneck** — 투입을 늘리고 오븐을 아주 느리게(20틱) 만들어, 자연 백프레셔로
+  앞단에 일감이 쌓임(WIP↑, 처리량↓).
 
 ---
 

@@ -141,6 +141,8 @@ stage are counted as **lost products**.
 - **Free Play** — default game mode, light breakdown chance.
 - **Normal flow** — balanced pipeline, no breakdowns.
 - **Random breakdowns** — elevated breakdown probability.
+- **Bottleneck** — faster input plus a very slow Oven (20 ticks), so work piles
+  up behind it via natural backpressure (WIP rises, throughput drops).
 
 ---
 
