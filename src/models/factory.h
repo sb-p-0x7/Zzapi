@@ -41,6 +41,12 @@ public:
     // ── Scenario가 사용하는 config API ──
     void setAllBreakdownProb(float p) { for (Machine* m : m_pipeline) m->setBreakdownProb(p); }
     void setSpawnInterval(int n)      { if (n > 0) m_spawnEvery = n; }
+    // 머신을 이름(displayName)으로 찾아 가공시간 설정 — 인덱스 결합 없이 병목 지정.
+    void setProcessTicksByName(const std::string& name, int ticks) {
+        if (ticks <= 0) return;
+        for (Machine* m : m_pipeline)
+            if (m->displayName() == name) m->setProcessTicks(ticks);
+    }
 
     // ── view가 읽는 출력 ──
     FactorySnap snapshot() const;

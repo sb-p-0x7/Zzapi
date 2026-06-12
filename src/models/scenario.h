@@ -5,7 +5,8 @@
 //   Scenario(추상) + apply(Factory&)
 //    ├ FreePlay         : 자유 플레이(게임 모드, 기본). 약한 고장확률.
 //    ├ NormalFlow       : 균형 잡힌 파이프라인. 고장 없음.
-//    └ RandomBreakdown  : 고장확률↑.
+//    ├ RandomBreakdown  : 고장확률↑.
+//    └ Bottleneck       : 투입↑ + 오븐 가공시간↑ → 앞단 백업(병목).
 //
 //   * 새 시나리오 = subclass 하나 + 레지스트리 한 줄. (과제 드롭다운 요구 충족)
 //   * Factory의 config API(setAllBreakdownProb 등)만 호출 → 캡슐화 유지.
@@ -37,6 +38,12 @@ public:
 class RandomBreakdown : public Scenario {
 public:
     std::string name() const override { return "Random breakdowns"; }
+    void        apply(Factory& f) const override;
+};
+
+class Bottleneck : public Scenario {
+public:
+    std::string name() const override { return "Bottleneck"; }
     void        apply(Factory& f) const override;
 };
 
