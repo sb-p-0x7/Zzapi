@@ -107,8 +107,13 @@ void Factory::transfer() {
             delete p;
         } else if (m_pipeline[i + 1]->canAccept()) {
             m_pipeline[i + 1]->accept(m_pipeline[i]->takeOutput());
+        } else {
+            // 다음 머신이 꽉 차있으면 → 즉시 loss (레퍼런스 동일 방식)
+            Pizza* p = m_pipeline[i]->takeOutput();
+            ++m_lost;
+            log(p->getInfo() + " lost (overflow)");
+            delete p;
         }
-        // 다음 머신이 못 받으면 그대로 둠 → 자연스러운 병목/백업
     }
 }
 
@@ -143,7 +148,7 @@ FactorySnap Factory::snapshot() const {
 
     s.money           = m_money;
     s.finishedGoods   = m_finished;
-    s.lostProducts    = m_orders.failed();
+    s.lostProducts    = m_lost + m_orders.failed();
     s.totalBreakdowns = m_breakdowns;
 
     int wip = 0;
