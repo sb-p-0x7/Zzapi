@@ -34,6 +34,9 @@ public:
     void forceBreak(int idx);
     void repair(int idx);
     void clearLog() { m_log.clear(); }
+    void tuneMachine(int idx, const MachineTune& t) {
+        if (idx >= 0 && idx < (int)m_pipeline.size()) m_pipeline[idx]->tune(t);
+    }
 
     // ── Scenario가 사용하는 config API ──
     void setAllBreakdownProb(float p) { for (Machine* m : m_pipeline) m->setBreakdownProb(p); }

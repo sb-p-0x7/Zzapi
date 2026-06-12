@@ -205,7 +205,7 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
 {
     (void)cmd;
     ImGui::SetNextWindowPos(ImVec2(8, 112), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(860, 400), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(860, 364), ImGuiCond_FirstUseEver);
     ImGui::Begin("Factory Floor", nullptr, ImGuiWindowFlags_HorizontalScrollbar);
 
     const auto& M = snap.machines;
@@ -250,6 +250,9 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
         dl->AddLine(ImVec2(origin.x, origin.y+g), ImVec2(origin.x+canvasW, origin.y+g), IM_COL32(40,45,50,80));
 
     // ── 벨트(station 사이) ──
+    struct BeltHit { int idx; ImVec2 mn, mx; };   // 클릭 영역 (벨트도 선택 가능)
+    std::vector<BeltHit> beltHits;
+    const ImU32 selCol = IM_COL32(255, 214, 64, 255);
     for (int si = 0; si + 1 < S; ++si) {
         int  beltIdx = st[si] + 1;
         bool hasBelt = (beltIdx < st[si+1]) && M[beltIdx].isConveyor;
@@ -266,6 +269,11 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
             ImVec2 b = O(ImVec2(B.x - dA*nodeR, B.y));
             DrawBelt(dl, a, b, dA < 0);
             if (brk) dl->AddLine(a, b, IM_COL32(200,40,40,90), 26.0f);
+            if (hasBelt) {
+                ImVec2 mn(std::min(a.x, b.x), a.y - 16), mx(std::max(a.x, b.x), a.y + 16);
+                beltHits.push_back({beltIdx, mn, mx});
+                if (beltIdx == m_selected) dl->AddRect(mn, mx, selCol, 8.0f, 0, 2.5f);
+            }
             for (int s = 0; s < len; ++s) {
                 if (!belt->conveyor.slots[s].occupied) continue;
                 float t = (s + 0.5f + mp) / len; if (t > 1.05f) t = 1.05f;
@@ -280,6 +288,15 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
             float a1 = (side > 0) ? (kPi * 0.5f)             // 우측 반원: +90°
                                   : (-kPi * 1.5f);           // 좌측 반원: -270°
             DrawBeltArc(dl, c, arcR, a0, a1, dA < 0);
+            if (hasBelt) {
+                float x1 = c.x + side * (arcR + 16.0f);
+                ImVec2 mn(std::min(c.x, x1), c.y - arcR - 16), mx(std::max(c.x, x1), c.y + arcR + 16);
+                beltHits.push_back({beltIdx, mn, mx});
+                if (beltIdx == m_selected) {
+                    dl->PathArcTo(c, arcR + 16.0f, a0, a1, 24); dl->PathStroke(selCol, 0, 2.5f);
+                    dl->PathArcTo(c, arcR - 16.0f, a0, a1, 24); dl->PathStroke(selCol, 0, 2.5f);
+                }
+            }
             for (int s = 0; s < len; ++s) {
                 if (!belt->conveyor.slots[s].occupied) continue;
                 float t = (s + 0.5f + mp) / len; if (t > 1.05f) t = 1.05f;
@@ -354,6 +371,13 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
             m_selected = (m_selected == st[si]) ? -1 : st[si];
         ImGui::PopID();
     }
+    for (const BeltHit& bh : beltHits) {
+        ImGui::SetCursorScreenPos(bh.mn);
+        ImGui::PushID(2000 + bh.idx);
+        if (ImGui::InvisibleButton("##belt", ImVec2(bh.mx.x - bh.mn.x, bh.mx.y - bh.mn.y)))
+            m_selected = (m_selected == bh.idx) ? -1 : bh.idx;
+        ImGui::PopID();
+    }
 
     ImGui::SetCursorScreenPos(origin);
     ImGui::Dummy(ImVec2(canvasW, canvasH));
@@ -392,13 +416,13 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
 // =============================================================================
 void DashboardView::RenderInspector(const FactorySnap& snap, FactoryCmd& cmd)
 {
-    ImGui::SetNextWindowPos(ImVec2(8, 520), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(425, 192), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(8, 484), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(425, 228), ImGuiCond_FirstUseEver);
     ImGui::Begin("Inspector");
 
     if (m_selected < 0 || m_selected >= (int)snap.machines.size()) {
         ImGui::TextDisabled("Select a machine.");
-        ImGui::TextDisabled("(click a node or list row in Factory Floor)");
+        ImGui::TextDisabled("(click a node or belt in Factory Floor)");
         ImGui::End();
         return;
     }
@@ -409,18 +433,39 @@ void DashboardView::RenderInspector(const FactorySnap& snap, FactoryCmd& cmd)
     ImGui::TextColored(StateColor(m.state), "[%s]", StateLabel(m.state));
     ImGui::Separator();
 
-    ImU32 hc; HealthHue(m.healthPct, hc);
-    ImGui::Text("Health");
-    ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImColor(hc).Value);
-    ImGui::ProgressBar(m.healthPct, ImVec2(-1, 14));
-    ImGui::PopStyleColor();
+    // ── 상태 (읽기 전용) ──
+    char ov[40];
+    if (m.isConveyor) {
+        int cap = std::max(1, (int)m.conveyor.slots.size());
+        std::snprintf(ov, sizeof(ov), "load %d/%d", m.queueDepth, cap);
+        ImGui::ProgressBar((float)m.queueDepth / cap, ImVec2(-1, 14), ov);
+    } else {
+        std::snprintf(ov, sizeof(ov), "progress %d%%", (int)(m.progressPct * 100));
+        ImGui::ProgressBar(m.progressPct, ImVec2(-1, 14), ov);
+    }
+    ImGui::Text("queue %d    output %d", m.queueDepth, m.outputCount);
 
-    ImGui::Text("Progress");
-    ImGui::ProgressBar(m.progressPct, ImVec2(-1, 14));
+    // ── 설정 (조절 → cmd.tune, 다음 틱에 반영) ──
+    ImGui::Separator();
+    ImGui::TextDisabled("Settings (applied live)");
 
-    ImGui::Text("queue depth : %d", m.queueDepth);
-    ImGui::Text("output count: %d", m.outputCount);
-    ImGui::Text("process time: %d ticks", m.processTicks);
+    float healthUI = m.healthPct * 100.0f;
+    if (ImGui::SliderFloat("Health", &healthUI, 0.0f, 100.0f, "%.0f%%"))
+        cmd.tune.healthPct = healthUI / 100.0f;
+
+    if (m.isConveyor) {
+        float bs = m.beltSpeed;
+        if (ImGui::SliderFloat("Belt speed", &bs, 0.05f, 1.0f, "%.2f slot/tick"))
+            cmd.tune.beltSpeed = bs;
+    } else {
+        int pt = m.processTicks;
+        if (ImGui::SliderInt("Proc time", &pt, 1, 20, "%d ticks"))
+            cmd.tune.processTicks = pt;
+    }
+
+    float bp = m.breakProb * 100.0f;
+    if (ImGui::SliderFloat("Break odds", &bp, 0.0f, 5.0f, "%.2f%%/tick"))
+        cmd.tune.breakProb = bp / 100.0f;
 
     ImGui::Spacing();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.20f, 0.18f, 1.0f));
@@ -439,8 +484,8 @@ void DashboardView::RenderInspector(const FactorySnap& snap, FactoryCmd& cmd)
 // =============================================================================
 void DashboardView::RenderEventLog(const FactorySnap& snap, FactoryCmd& cmd)
 {
-    ImGui::SetNextWindowPos(ImVec2(441, 520), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(427, 192), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(441, 484), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(427, 228), ImGuiCond_FirstUseEver);
     ImGui::Begin("Event Log");
 
     if (ImGui::Button("Clear")) cmd.clearLog = true;

@@ -57,6 +57,17 @@ void Machine::fillCommonSnap(MachineSnap& s) const {
     s.processTicks = m_processTicks;
     s.queueDepth   = wipCount();    // 머신 안 대기물 수
     s.outputCount  = m_produced;    // 누적 산출
+    s.breakProb    = m_breakdownProb;
+}
+
+void Machine::tune(const MachineTune& t) {
+    if (t.processTicks > 0) m_processTicks = t.processTicks;
+    if (t.healthPct >= 0.f) {
+        float p = t.healthPct > 1.f ? 1.f : t.healthPct;
+        m_durability = p * m_maxDurability;
+    }
+    if (t.breakProb >= 0.f)
+        m_breakdownProb = t.breakProb > 1.f ? 1.f : t.breakProb;
 }
 
 // =============================================================================
@@ -126,10 +137,17 @@ int ConveyorMachine::wipCount() const {
     int n = 0; for (auto* p : m_belt) if (p) ++n; return n;
 }
 
+void ConveyorMachine::tune(const MachineTune& t) {
+    Machine::tune(t);
+    if (t.beltSpeed > 0.f)
+        m_moveSpeed = t.beltSpeed > 1.f ? 1.f : t.beltSpeed;
+}
+
 MachineSnap ConveyorMachine::snapshot() const {
     MachineSnap s;
     fillCommonSnap(s);
     s.isConveyor = true;
+    s.beltSpeed  = m_moveSpeed;
     s.conveyor.moveProgress = m_moveProgress;
     s.conveyor.slots.reserve(m_length);
     for (auto* p : m_belt) {

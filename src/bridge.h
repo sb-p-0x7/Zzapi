@@ -38,6 +38,14 @@ struct ConveyorSnap {
     float moveProgress = 0.0f;   // 0..1, 칸 사이 이동 진행도 → UI가 보간
 };
 
+// ── Inspector → 머신 설정 조절 (음수 = 변경 없음) ──
+struct MachineTune {
+    int   processTicks = -1;    // 비-벨트: 가공 시간 (틱)
+    float healthPct    = -1.f;  // 0..1 내구도
+    float breakProb    = -1.f;  // 0..1 틱당 고장 확률
+    float beltSpeed    = -1.f;  // 벨트만: 틱당 진행량 (0..1)
+};
+
 // ── 머신 한 개 스냅샷 ──
 struct MachineSnap {
     int          id          = -1;
@@ -49,6 +57,8 @@ struct MachineSnap {
     int          processTicks = 0;            // Inspector 표시용
     int          queueDepth   = 0;            // Inspector: 머신 안 대기물 수
     int          outputCount  = 0;            // Inspector: 누적 산출 개수
+    float        breakProb    = 0.0f;          // Inspector 슬라이더 표시용
+    float        beltSpeed    = 0.0f;          // 벨트일 때만 유효
     bool         hasPizzaInside = false;
     PizzaView    pizzaInside;
     bool         isConveyor   = false;
@@ -92,4 +102,5 @@ struct FactoryCmd {
     bool forceBreak    = false;
     bool instantRepair = false;
     bool clearLog      = false;
+    MachineTune tune;           // selectedMachine 에 적용 (음수 필드 = 무시)
 };
