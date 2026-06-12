@@ -71,6 +71,8 @@ public:
     void  forceBreak();
     void  instantRepair();
     virtual void resetState();
+    // Inspector 설정 조절. 음수 필드는 무시. 벨트가 beltSpeed 처리를 확장(다형성).
+    virtual void tune(const MachineTune& t);
 
 protected:
     bool tickHealth();              // 고장 굴림 + 수리 타이머. 진행 가능하면 true
@@ -124,6 +126,7 @@ public:
     int    wipCount()  const override;
     MachineSnap snapshot() const override;
     void   resetState() override;
+    void   tune(const MachineTune& t) override;   // + beltSpeed
 };
 
 // =============================================================================

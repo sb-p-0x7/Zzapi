@@ -27,6 +27,7 @@ void FactoryController::applyCmd(const FactoryCmd& cmd)
     if (cmd.forceBreak)    m_factory->forceBreak(cmd.selectedMachine);
     if (cmd.instantRepair) m_factory->repair(cmd.selectedMachine);
     if (cmd.clearLog)      m_factory->clearLog();
+    m_factory->tuneMachine(cmd.selectedMachine, cmd.tune);   // 음수 필드 = no-op
 }
 
 void FactoryController::advance(float dt)
