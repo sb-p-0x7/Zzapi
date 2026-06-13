@@ -35,7 +35,7 @@ interactive system:
 - **Six ImGui windows:** Simulation Control, Factory Floor, Inspector, Event Log, Statistics, Orders.
 - **Animated Factory Floor:** snake pipeline, drawn pizzas, moving conveyor belts, and **semicircle U-turn belts** on row wraps.
 - **Click any machine or belt** to open it in the Inspector and **tune it live** (health, process time / belt speed, breakdown odds).
-- **Four runtime scenarios:** Free Play · Normal flow · Random breakdowns · **Bottleneck**.
+- **Five runtime scenarios:** Normal flow · Bottleneck · Random breakdowns · Overflow · **Free Play** (game mode with orders).
 - **Fully decoupled UI/backend** — the two sides talk only through value structs in `bridge.h`.
 
 ---
@@ -61,12 +61,11 @@ The UI is always one frame behind — it reads `snap.state`, never `machine.stat
 
 ```bash
 # macOS / Linux  (GLFW + ImGui are fetched automatically by CMake)
-./scripts/build.sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
 ./build/PizzaFactory
 
-# Windows
-scripts\build.bat Release
-build\Release\PizzaFactory.exe
+# Windows: cmake --build build --config Release  ->  build\Release\PizzaFactory.exe
 ```
 
 ---

@@ -35,7 +35,7 @@ src/
 │   ├── machine.{h,cpp}          Machine(추상)→NonConveyor/Conveyor→concrete 8종
 │   ├── factory.{h,cpp}          Factory: 집합체 모델 + 진입점
 │   ├── order.{h,cpp}            Order / OrderBook (주문·보상·마감)
-│   └── scenario.{h,cpp}         Scenario(추상) + FreePlay/NormalFlow/RandomBreakdown
+│   └── scenario.{h,cpp}         Scenario(추상) + NormalFlow/Bottleneck/RandomBreakdown/Overflow/FreePlay
 ├── controllers/              ← 동료 담당 (cmd → factory 제어)
 ├── views/                    ← 동료 담당 (snapshot → ImGui)
 └── main.cpp                  ← 양쪽을 보는 유일한 파일
@@ -65,6 +65,7 @@ struct FactorySnap {
     vector<string>      scenarioNames;   // 드롭다운 항목
     vector<MachineSnap> machines;
     vector<OrderSnap>   orders;
+    bool                ordersEnabled;   // 게임모드일 때만 true (그 외 시나리오는 주문 OFF)
     vector<string>      eventLog;        // 타임스탬프 포함
     int money, finishedGoods, wipCount, totalBreakdowns, lostProducts;
 };
@@ -186,9 +187,11 @@ classDiagram
         +name() string
         +apply(Factory) void
     }
-    Scenario <|-- FreePlay
     Scenario <|-- NormalFlow
+    Scenario <|-- Bottleneck
     Scenario <|-- RandomBreakdown
+    Scenario <|-- Overflow
+    Scenario <|-- FreePlay
 
     class Order {
         -PizzaSize size

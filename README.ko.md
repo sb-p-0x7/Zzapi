@@ -96,7 +96,7 @@ Machine (추상)
       └─ ConveyorBelt
 
 Pizza (추상) ├─ RawDough (시작) └─ BoxedPizza (끝)
-Scenario (추상) ├─ FreePlay ├─ NormalFlow └─ RandomBreakdown
+Scenario (추상) ├─ NormalFlow ├─ Bottleneck ├─ RandomBreakdown ├─ Overflow └─ FreePlay
 ```
 
 `Factory::step()`은 `for (Machine* m : pipeline) m->update(tick);` — 순수 다형성.
@@ -129,11 +129,16 @@ IN ▸ Dough Stretcher → [Conveyor] → Sauce → Cheese → Topping → Oven 
 제품은 **손실(lost products)**로 집계됩니다.
 
 ### 시나리오 (실행 중 드롭다운)
-- **Free Play** — 기본 게임 모드, 약한 고장 확률.
-- **Normal flow** — 균형 잡힌 파이프라인, 고장 없음.
-- **Random breakdowns** — 고장 확률 상향.
-- **Bottleneck** — 투입을 늘리고 오븐을 아주 느리게(20틱) 만들어, 자연 백프레셔로
-  앞단에 일감이 쌓임(WIP↑, 처리량↓).
+
+주문/경제는 **게임모드 전용**입니다 — 4개 시연 시나리오는 주문 없이 돌아가서
+`lost products`가 순수 생산 손실만 의미하고 money는 0입니다.
+
+- **Normal flow** — 저부하 파이프라인, 고장 없음. 들어온 건 다 출고됨.
+- **Bottleneck** — 오븐을 아주 느리게(40틱) → 처리량이 묶여 완성품이 가장 적고 앞단에 적체.
+- **Random breakdowns** — 모든 머신에 틱당 고장 확률. 고장이 라인을 막고 제품을 떨어뜨림.
+- **Overflow** — 중간 병목(오븐 12틱)에 투입을 폭주(3틱마다)시켜, 생산하는 만큼 버려짐(낭비).
+  (벨트 길이는 손실에 영향 없음 — 손실은 오직 '입력 속도 − 가장 느린 단계 배출속도'.)
+- **Free Play** — 게임모드: 손님 주문 + 경제 + 약한 고장 확률.
 
 ---
 
@@ -175,7 +180,8 @@ Zzapi/
     ├── controllers/
     │   └── factory_controller.{h,cpp}   # cmd → factory, 틱 cadence
     └── views/
-        └── dashboard_view.{h,cpp}       # snapshot → ImGui (bridge.h만 의존)
+        ├── dashboard_view.{h,cpp}       # snapshot → ImGui (bridge.h만 의존)
+        └── belt_render.{h,cpp}          # 컨베이어 벨트 드로잉 프리미티브 (imgui만 의존)
 ```
 
 ### 헤드리스 백엔드 테스트

@@ -97,7 +97,7 @@ Machine (abstract)
       └─ ConveyorBelt
 
 Pizza (abstract) ├─ RawDough (pipeline start) └─ BoxedPizza (pipeline end)
-Scenario (abstract) ├─ FreePlay ├─ NormalFlow └─ RandomBreakdown
+Scenario (abstract) ├─ NormalFlow ├─ Bottleneck ├─ RandomBreakdown ├─ Overflow └─ FreePlay
 ```
 
 `Factory::step()` is `for (Machine* m : pipeline) m->update(tick);` — pure polymorphism.
@@ -130,11 +130,19 @@ If a machine is broken or full, items back up naturally; items dropped at a full
 stage are counted as **lost products**.
 
 ### Scenarios (runtime dropdown)
-- **Free Play** — default game mode, light breakdown chance.
-- **Normal flow** — balanced pipeline, no breakdowns.
-- **Random breakdowns** — elevated breakdown probability.
-- **Bottleneck** — faster input plus a very slow Oven (20 ticks), so work piles
-  up behind it via natural backpressure (WIP rises, throughput drops).
+
+Orders/economy are **game-mode only** — the four demo scenarios run order-free, so their
+`lost products` reflects pure production loss and money stays 0.
+
+- **Normal flow** — low-load pipeline, no breakdowns. Everything that enters ships.
+- **Bottleneck** — a very slow Oven (40 ticks) throttles the line, so throughput collapses
+  (lowest finished count) and work backs up behind it.
+- **Random breakdowns** — every machine has a per-tick breakdown chance; failures stall the
+  line and drop product.
+- **Overflow** — a moderate Oven bottleneck (12 ticks) is flooded with input (a dough every
+  3 ticks), so the line wastes roughly as much as it produces. (Belt length has no effect on
+  loss — loss is purely input rate vs the slowest stage's drain rate.)
+- **Free Play** — the game mode: customer orders + economy + light breakdowns.
 
 ---
 
@@ -176,7 +184,8 @@ Zzapi/
     ├── controllers/
     │   └── factory_controller.{h,cpp}   # cmd → factory, tick cadence
     └── views/
-        └── dashboard_view.{h,cpp}       # snapshot → ImGui (bridge.h only)
+        ├── dashboard_view.{h,cpp}       # snapshot → ImGui (bridge.h only)
+        └── belt_render.{h,cpp}          # conveyor-belt drawing primitives (imgui-only)
 ```
 
 ### Headless backend test
