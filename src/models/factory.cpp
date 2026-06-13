@@ -37,6 +37,7 @@ void Factory::loadScenario(int idx) {
     m_scenario = idx;
     build();
     m_orders.reset();
+    m_ordersEnabled = false;          // 기본 OFF — 게임모드 시나리오가 apply()에서 켠다
     m_tick = 0; m_money = 0; m_finished = 0; m_lost = 0; m_breakdowns = 0;
     m_nextId = 1; m_running = false;
     m_log.clear();
@@ -81,8 +82,8 @@ void Factory::step() {
     transfer();
     // 3) 새 반죽 투입
     if (m_tick % m_spawnEvery == 0) spawn();
-    // 4) 주문 갱신
-    m_orders.update((int)m_tick);
+    // 4) 주문 갱신 (게임모드만)
+    if (m_ordersEnabled) m_orders.update((int)m_tick);
     // 5) 고장 이벤트 로깅
     detectBreakdowns();
 }
@@ -101,9 +102,13 @@ void Factory::transfer() {
             // 마지막 머신 배출 = 완성품
             Pizza* p = m_pipeline[i]->takeOutput();
             ++m_finished;
-            int reward = m_orders.tryFulfill(*p);
-            if (reward > 0) { m_money += reward; log(p->getInfo() + " shipped (+$" + std::to_string(reward) + ")"); }
-            else            { log(p->getInfo() + " shipped (no order)"); }
+            if (m_ordersEnabled) {
+                int reward = m_orders.tryFulfill(*p);
+                if (reward > 0) { m_money += reward; log(p->getInfo() + " shipped (+$" + std::to_string(reward) + ")"); }
+                else            { log(p->getInfo() + " shipped (no order)"); }
+            } else {
+                log(p->getInfo() + " shipped");
+            }
             delete p;
         } else if (m_pipeline[i + 1]->canAccept()) {
             m_pipeline[i + 1]->accept(m_pipeline[i]->takeOutput());
@@ -148,8 +153,9 @@ FactorySnap Factory::snapshot() const {
 
     s.money           = m_money;
     s.finishedGoods   = m_finished;
-    s.lostProducts    = m_lost + m_orders.failed();
+    s.lostProducts    = m_lost + (m_ordersEnabled ? m_orders.failed() : 0);
     s.totalBreakdowns = m_breakdowns;
+    s.ordersEnabled   = m_ordersEnabled;
 
     int wip = 0;
     s.machines.reserve(m_pipeline.size());

@@ -14,23 +14,13 @@
 GLFW and Dear ImGui are fetched automatically by CMake — **nothing to install** beyond a
 compiler and CMake 3.20+.
 
-### macOS / Linux
 ```bash
-./scripts/build.sh            # Debug build
-./scripts/build.sh Release    # Release build
-./build/PizzaFactory          # run
-```
-
-### Windows (Visual Studio toolchain)
-```bat
-scripts\build.bat Release
-build\Release\PizzaFactory.exe
-```
-
-### Plain CMake (any platform)
-```bash
+# one-time: configure the build folder (use Debug for an unoptimized build)
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+# build, then run — repeat these two after any code change
 cmake --build build --parallel
+./build/PizzaFactory
 ```
 
 | Platform | Needs |
@@ -39,8 +29,10 @@ cmake --build build --parallel
 | Windows | Visual Studio 2019+ (Desktop C++), CMake 3.20+ |
 | Linux | gcc/clang, CMake 3.20+, OpenGL + X11 dev headers |
 
-> **Windows note:** the build sets MSVC `/utf-8` automatically (sources are UTF-8), so text
-> renders correctly. MinGW/Clang/GCC need no extra flag.
+> **Windows note:** Visual Studio is a multi-config generator, so `-DCMAKE_BUILD_TYPE` is
+> ignored — build with `cmake --build build --config Release` and run
+> `build\Release\PizzaFactory.exe`. The build sets MSVC `/utf-8` automatically (sources are
+> UTF-8), so text renders correctly; MinGW/Clang/GCC need no extra flag.
 
 ---
 

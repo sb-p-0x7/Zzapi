@@ -15,23 +15,13 @@
 
 GLFW와 Dear ImGui는 CMake가 자동으로 내려받습니다 — 컴파일러와 CMake 3.20+ 외에 **설치할 것 없음**.
 
-### macOS / Linux
 ```bash
-./scripts/build.sh            # Debug 빌드
-./scripts/build.sh Release    # Release 빌드
-./build/PizzaFactory          # 실행
-```
-
-### Windows (Visual Studio 툴체인)
-```bat
-scripts\build.bat Release
-build\Release\PizzaFactory.exe
-```
-
-### CMake 직접 사용 (모든 플랫폼)
-```bash
+# 최초 1회: 빌드 폴더 구성 (최적화 없는 빌드는 Debug 사용)
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+# 빌드 후 실행 — 코드를 고칠 때마다 이 두 줄만 반복
 cmake --build build --parallel
+./build/PizzaFactory
 ```
 
 | 플랫폼 | 필요 사항 |
@@ -40,8 +30,9 @@ cmake --build build --parallel
 | Windows | Visual Studio 2019+ (Desktop C++), CMake 3.20+ |
 | Linux | gcc/clang, CMake 3.20+, OpenGL + X11 개발 헤더 |
 
-> **Windows 주의:** 소스가 UTF-8이라 빌드에서 MSVC `/utf-8`를 자동 지정합니다(텍스트 정상 출력).
-> MinGW/Clang/GCC는 추가 플래그가 필요 없습니다.
+> **Windows 주의:** Visual Studio는 멀티 컨피그 제너레이터라 `-DCMAKE_BUILD_TYPE`이 무시됩니다 —
+> `cmake --build build --config Release`로 빌드하고 `build\Release\PizzaFactory.exe`로 실행하세요.
+> 소스가 UTF-8이라 빌드에서 MSVC `/utf-8`를 자동 지정합니다(텍스트 정상 출력). MinGW/Clang/GCC는 추가 플래그가 필요 없습니다.
 
 ---
 

@@ -82,6 +82,7 @@ struct FactorySnap {
     std::vector<std::string> scenarioNames;   // 드롭다운용
     std::vector<MachineSnap> machines;
     std::vector<OrderSnap>   orders;
+    bool                     ordersEnabled = false;   // 게임모드(주문)일 때만 true
     std::vector<std::string> eventLog;        // 타임스탬프 포함 문자열
     // 통계
     int money           = 0;

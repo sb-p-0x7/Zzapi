@@ -23,14 +23,21 @@ void Bottleneck::apply(Factory& f) const {
 
 void Overflow::apply(Factory& f) const {
     f.setAllBreakdownProb(0.0f);
-    f.setSpawnInterval(10);
-    f.setAllConveyorLength(1);
+    f.setProcessTicksByName("Oven", 12);  // 중간 병목 (기본 6 < 12 < Bottleneck 40)
+    f.setSpawnInterval(3);                // 병목 배출량을 크게 초과하는 투입 → 초과분이 손실
+    // 주: 손실은 '입력 - 병목 배출'로만 결정됨(실측). 벨트 길이는 손실에 영향 없어 조작하지 않음.
+}
+
+void FreePlay::apply(Factory& f) const {
+    f.setOrdersEnabled(true);       // 게임 모드 — 주문/경제 레이어 활성
+    f.setAllBreakdownProb(0.0008f); // 약한 고장 확률
+    f.setSpawnInterval(30);
 }
 
 // =============================================================================
 // 레지스트리 — 새 시나리오 추가 시 여기 한 줄만 늘리면 된다.
 // =============================================================================
-int scenarioCount() { return 4; }
+int scenarioCount() { return 5; }
 
 std::string scenarioName(int idx) {
     return makeScenario(idx)->name();
@@ -41,6 +48,7 @@ std::unique_ptr<Scenario> makeScenario(int idx) {
         case 1:  return std::make_unique<Bottleneck>();
         case 2:  return std::make_unique<RandomBreakdown>();
         case 3:  return std::make_unique<Overflow>();
+        case 4:  return std::make_unique<FreePlay>();
         default: return std::make_unique<NormalFlow>();
     }
 }

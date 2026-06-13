@@ -53,7 +53,7 @@ public:
         }
     }
 
-    void setAllConveyorLength(int len);
+    void setOrdersEnabled(bool b) { m_ordersEnabled = b; }   // 게임모드만 주문 활성
 
     // ── view가 읽는 출력 ──
     FactorySnap snapshot() const;
@@ -63,6 +63,7 @@ public:
 private:
     std::vector<Machine*> m_pipeline;   // composition (소유)
     OrderBook m_orders;
+    bool m_ordersEnabled = false;       // 게임모드(주문)만 true — 시나리오가 설정
     long m_tick       = 0;
     bool m_running    = false;
     int  m_speed      = 1;
