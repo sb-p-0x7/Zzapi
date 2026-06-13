@@ -9,50 +9,70 @@
 ## 1. Overall Architecture / 전체 아키텍처
 
 ```mermaid
-flowchart LR
+---
+config:
+  layout: elk
+---
+flowchart TB
+    %% === UI Layer / View ===
     subgraph UI["UI Layer / View"]
-        DashboardView["DashboardView<br/>renders FactorySnap<br/>sets FactoryCmd"]
-        BeltRender["belt namespace<br/>DrawBelt / DrawBeltArc"]
+        class UI ui;
+        DashboardView["DashboardView<br>renders FactorySnap<br>sets FactoryCmd"]
+        BeltRender["belt namespace<br>DrawBelt / DrawBeltArc"]
     end
 
+    %% === Boundary Contract ===
     subgraph Boundary["Boundary Contract: bridge.h"]
-        FactorySnap["FactorySnap<br/>read-only value snapshot"]
-        FactoryCmd["FactoryCmd<br/>one-frame command flags"]
-        DTOs["PizzaView / MachineSnap / OrderSnap<br/>plain data structs"]
+        class Boundary boundary;
+        FactorySnap["FactorySnap<br>read-only value snapshot"]
+        FactoryCmd["FactoryCmd<br>one-frame command flags"]
+        DTOs["PizzaView / MachineSnap / OrderSnap<br>plain data structs"]
     end
 
+    %% === Controller Layer ===
     subgraph Control["Controller Layer"]
-        FactoryController["FactoryController<br/>maps cmd to Factory API<br/>controls tick cadence"]
+        class Control control;
+        FactoryController["FactoryController<br>maps cmd to Factory API<br>controls tick cadence"]
     end
 
+    %% === Model Layer / Simulation Backend ===
     subgraph Model["Model Layer / Simulation Backend"]
-        Factory["Factory<br/>owns pipeline and simulation state"]
-        Machine["Machine hierarchy<br/>polymorphic production units"]
-        Pizza["Pizza hierarchy<br/>products moving through pipeline"]
-        Scenario["Scenario hierarchy<br/>runtime configuration"]
-        OrderBook["OrderBook<br/>orders and rewards"]
+        class Model model;
+        Factory["Factory<br>owns pipeline and simulation state"]
+        Machine["Machine hierarchy<br>polymorphic production units"]
+        Pizza["Pizza hierarchy<br>products moving through pipeline"]
+        Scenario["Scenario hierarchy<br>runtime configuration"]
+        OrderBook["OrderBook<br>orders and rewards"]
     end
 
-    App["App<br/>frame coordinator"] --> DashboardView
+    %% === Connections ===
+    App["App<br>frame coordinator"] --> DashboardView
     App --> FactoryController
     App --> Factory
 
     Factory --> FactorySnap
-    Machine --> DTOs
-    Pizza --> DTOs
-    OrderBook --> DTOs
-    DTOs --> FactorySnap
-    FactorySnap --> DashboardView
-
-    DashboardView --> FactoryCmd
-    FactoryCmd --> FactoryController
-    FactoryController --> Factory
-
-    DashboardView --> BeltRender
     Factory --> Machine
     Factory --> Pizza
     Factory --> Scenario
     Factory --> OrderBook
+
+    Machine --> DTOs
+    Pizza --> DTOs
+    OrderBook --> DTOs
+    DTOs --> FactorySnap
+
+    FactorySnap --> DashboardView
+    DashboardView --> FactoryCmd
+    DashboardView --> BeltRender
+
+    FactoryCmd --> FactoryController
+    FactoryController --> Factory
+
+    %% === Style Definitions ===
+    classDef ui stroke:#818cf8,fill:#eef2ff;
+    classDef boundary stroke:#a3e635,fill:#f7fee7;
+    classDef control stroke:#fb923c,fill:#fff7ed;
+    classDef model stroke:#2dd4bf,fill:#f0fdfa;
 ```
 
 Korean:
@@ -95,7 +115,9 @@ classDiagram
 
     Pizza <|-- RawDough
     Pizza <|-- BoxedPizza
-
+```
+```mermaid
+classDiagram
     class Machine {
         <<abstract>>
         #string m_name
@@ -144,7 +166,9 @@ classDiagram
     NonConveyorMachine <|-- Cutter
     NonConveyorMachine <|-- PackagingMachine
     ConveyorMachine <|-- ConveyorBelt
-
+```
+```mermaid
+classDiagram
     class Scenario {
         <<abstract>>
         +name() string
