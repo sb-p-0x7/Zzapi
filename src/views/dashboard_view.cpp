@@ -394,14 +394,16 @@ void DashboardView::RenderInspector(const FactorySnap& snap, FactoryCmd& cmd)
 
     // ── 상태 (읽기 전용) ──
     char ov[40];
+    // ImGui::Dummy(ImVec2(0, 4)); // very little blank space
     if (m.isConveyor) {
         int cap = std::max(1, (int)m.conveyor.slots.size());
         std::snprintf(ov, sizeof(ov), "load %d/%d", m.queueDepth, cap);
-        ImGui::ProgressBar((float)m.queueDepth / cap, ImVec2(-1, 14), ov);
+        ImGui::ProgressBar((float)m.queueDepth / cap, ImVec2(-1, 20), ov);
     } else {
         std::snprintf(ov, sizeof(ov), "progress %d%%", (int)(m.progressPct * 100));
-        ImGui::ProgressBar(m.progressPct, ImVec2(-1, 14), ov);
+        ImGui::ProgressBar(m.progressPct, ImVec2(-1, 20), ov);
     }
+    // ImGui::Dummy(ImVec2(0, 8)); // very little blank space
     ImGui::Text("queue %d    output %d", m.queueDepth, m.outputCount);
 
     // ── 설정 (조절 → cmd.tune, 다음 틱에 반영) ──
