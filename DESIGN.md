@@ -227,15 +227,56 @@ classDiagram
 
 ## 6. ER 다이어그램 (과제 3.2 대응)
 
+> 엔티티(객체) 간 관계 + 다중도. 상속 구조(Machine/Pizza/Scenario 서브타입)는 §5 UML 참고.
+> 주문/경제(ORDERBOOK·ORDER)는 게임모드(Free Play)에서만 활성 — `FACTORY.ordersEnabled`.
+
 ```mermaid
 erDiagram
-    FACTORY   ||--o{ MACHINE  : owns
-    FACTORY   ||--|| ORDERBOOK : has
-    ORDERBOOK ||--o{ ORDER    : manages
-    MACHINE   ||--o| PIZZA    : "processes (1 inside)"
-    MACHINE   ||--o{ PIZZA    : "carries on belt (conveyor)"
-    ORDER     ||--o| PIZZA    : "fulfilled by"
-    FACTORY   ||--o{ SCENARIO : "configured by"
+    FACTORY   ||--|{ MACHINE   : "owns (pipeline)"
+    FACTORY   ||--|| ORDERBOOK : owns
+    FACTORY   ||--|| SCENARIO  : "configured by (1 of 5)"
+    ORDERBOOK ||--o{ ORDER     : manages
+    MACHINE   ||--o| PIZZA     : "processes (non-conveyor: 1 inside)"
+    MACHINE   ||--o{ PIZZA     : "carries (conveyor: N on belt)"
+    ORDER     |o--o| PIZZA     : "fulfilled by (match)"
+
+    FACTORY {
+        long tick
+        int  speed
+        int  money
+        int  finishedGoods
+        int  lostProducts
+        bool ordersEnabled
+    }
+    MACHINE {
+        string name
+        int    processTicks
+        float  durability
+        float  breakdownProb
+        bool   isConveyor
+    }
+    PIZZA {
+        int  id
+        int  doughStage
+        int  size
+        bool boxed
+    }
+    ORDERBOOK {
+        int genEvery
+        int maxActive
+        int completed
+        int failed
+    }
+    ORDER {
+        int         id
+        PizzaSize   size
+        int         ticksLeft
+        int         reward
+        OrderStatus status
+    }
+    SCENARIO {
+        string name
+    }
 ```
 
 ---
