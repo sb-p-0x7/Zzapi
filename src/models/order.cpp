@@ -11,7 +11,7 @@ bool Order::tickExpire() {
 }
 
 bool Order::matches(const Pizza& p) const {
-    if (!p.isBoxed())          return false;     // 완성품만
+    if (!p.isBoxed())          return false;     // finished goods only
     if (p.size() != m_size)    return false;
     if (m_needSauce   && !p.hasSauce())   return false;
     if (m_needCheese  && !p.hasCheese())  return false;
@@ -40,8 +40,8 @@ std::mt19937& OrderBook::rng() {
 
 void OrderBook::generate() {
     std::bernoulli_distribution        coin(0.5);
-    // 공장은 항상 Medium 피자를 생산하므로 주문도 Medium 으로 맞춰 충족 가능하게 한다.
-    // (사이즈 가변 생산은 추후 게임플레이 확장 과제)
+    // The factory always produces Medium pizzas, so orders are kept Medium to stay fulfillable.
+    // (Variable-size production is a future gameplay extension.)
     PizzaSize size  = PizzaSize::MEDIUM;
     bool sauce      = coin(rng());
     bool cheese     = coin(rng());
@@ -58,17 +58,17 @@ void OrderBook::generate() {
 }
 
 void OrderBook::update(int /*tick*/) {
-    // 마감 처리
+    // Handle deadlines
     for (Order& o : m_active) {
         if (o.tickExpire()) ++m_failed;
     }
-    // 완료/실패 주문 제거
+    // Remove completed/failed orders
     m_active.erase(
         std::remove_if(m_active.begin(), m_active.end(),
             [](const Order& o) { return o.status() != OrderStatus::PENDING; }),
         m_active.end());
 
-    // 새 주문 생성
+    // Generate a new order
     if (++m_genTimer >= m_genEvery) {
         m_genTimer = 0;
         if ((int)m_active.size() < m_maxActive) generate();
@@ -83,7 +83,7 @@ int OrderBook::tryFulfill(const Pizza& p) {
             return o.reward();
         }
     }
-    return 0;   // 맞는 주문 없음
+    return 0;   // no matching order
 }
 
 void OrderBook::reset() {

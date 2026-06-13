@@ -1,7 +1,7 @@
 #include "machine.h"
 
 // =============================================================================
-// Machine (공통)
+// Machine (common)
 // =============================================================================
 std::mt19937& Machine::rng() {
     static std::mt19937 gen(std::random_device{}());
@@ -39,7 +39,7 @@ bool Machine::tickHealth() {
         if (--m_repairTimer <= 0) { m_broken = false; m_durability = m_maxDurability; }
         return false;
     }
-    // 내구도 소진 → 반드시 고장 (health 0이면 breakdown). 수리 시 내구도 복구.
+    // Durability exhausted -> must break down (health 0 means breakdown). Repair restores durability.
     if (m_durability <= 0.f) {
         m_broken = true; m_repairTimer = m_repairTicks;
         return false;
@@ -60,8 +60,8 @@ void Machine::fillCommonSnap(MachineSnap& s) const {
     s.state        = state();
     s.healthPct    = healthPct();
     s.processTicks = m_processTicks;
-    s.queueDepth   = wipCount();    // 머신 안 대기물 수
-    s.outputCount  = m_produced;    // 누적 산출
+    s.queueDepth   = wipCount();    // number of items waiting inside the machine
+    s.outputCount  = m_produced;    // cumulative output
     s.breakProb    = m_breakdownProb;
 }
 
@@ -79,10 +79,10 @@ void Machine::tune(const MachineTune& t) {
 // NonConveyorMachine
 // =============================================================================
 void NonConveyorMachine::update(int /*tick*/) {
-    if (!tickHealth()) return;          // 고장/정지면 진행 안 함
-    if (!m_inside)     return;          // 가공할 게 없음
+    if (!tickHealth()) return;          // don't advance if broken/stopped
+    if (!m_inside)     return;          // nothing to process
     if (++m_timer >= m_processTicks) {
-        m_done   = transform(m_inside); // canAccept가 m_done 비었을 때만 받으므로 안전
+        m_done   = transform(m_inside); // safe: canAccept only takes work when m_done is empty
         m_inside = nullptr;
         m_timer  = 0;
         wear(1.0f);
@@ -125,7 +125,7 @@ void ConveyorMachine::update(int /*tick*/) {
     m_moveProgress += m_moveSpeed;
     if (m_moveProgress >= 1.0f) {
         m_moveProgress -= 1.0f;
-        // 뒤 → 앞 한 칸씩 전진. 맨 뒤 칸은 takeOutput으로 빠진다.
+        // Advance one slot from back to front. The last slot is drained via takeOutput.
         for (int i = m_length - 1; i > 0; --i) {
             if (!m_belt[i]) { m_belt[i] = m_belt[i - 1]; m_belt[i - 1] = nullptr; }
         }

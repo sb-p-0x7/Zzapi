@@ -7,16 +7,16 @@
 #include <vector>
 
 // =============================================================================
-//  bridge.h(값 구조체)만으로 그린다. 머신/피자 객체 포인터는 어디에도 없다.
-//  사용 폰트(main.cpp)가 커버하는 글리프만 사용: ASCII + 한글 + BMP 기호
-//  (▶ ⏸ ↻ ⚠ ● ▰ → ⌛). 0x1F000+ 이모지는 폰트 미포함이라 쓰지 않는다.
+//  Draws using only bridge.h (value structs). There are no machine/pizza object pointers anywhere.
+//  Uses only glyphs covered by the active font (main.cpp): ASCII + BMP symbols.
+//  0x1F000+ emoji are avoided because the font does not include them.
 // =============================================================================
 
 namespace {
 
 constexpr float kPi = 3.14159265f;
 
-// ── 상태 → 색/라벨 ───────────────────────────────────────────────────────────
+// -- State -> color/label ----------------------------------------------------
 ImVec4 StateColor(MachineState s) {
     switch (s) {
         case MachineState::WORKING: return ImVec4(0.26f, 0.85f, 0.42f, 1.0f);
@@ -36,7 +36,7 @@ const char* StateLabel(MachineState s) {
     }
 }
 
-// ── 피자 그리기 (PizzaView 값 구조체 기반) ───────────────────────────────────
+// -- Draw a pizza (based on the PizzaView value struct) ----------------------
 void DrawPizza(ImDrawList* dl, ImVec2 c, const PizzaView& p) {
     float r = 15.0f;
     if (p.size == 0)      r = 11.0f;   // S
@@ -77,7 +77,7 @@ void DrawPizza(ImDrawList* dl, ImVec2 c, const PizzaView& p) {
     }
 }
 
-// 컨베이어 벨트 드로잉 프리미티브(DrawBelt / DrawBeltArc)는 belt_render.h 로 분리.
+// The conveyor-belt drawing primitives (DrawBelt / DrawBeltArc) live in belt_render.h.
 
 void DrawBar(ImDrawList* dl, ImVec2 mn, ImVec2 mx, float pct, ImU32 col) {
     pct = pct < 0 ? 0 : (pct > 1 ? 1 : pct);
@@ -163,7 +163,7 @@ void DashboardView::RenderControl(const FactorySnap& snap, FactoryCmd& cmd)
 }
 
 // =============================================================================
-//  2) Factory Floor — station 스네이크 + 직선/반원 벨트 캔버스
+//  2) Factory Floor — station snake + straight/semicircle belt canvas
 // =============================================================================
 void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
 {
@@ -175,12 +175,12 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
     const auto& M = snap.machines;
     const int   N = (int)M.size();
 
-    // 비-벨트 머신(station) 의 파이프라인 인덱스
+    // Pipeline indices of the non-belt machines (stations)
     std::vector<int> st;
     for (int i = 0; i < N; ++i) if (!M[i].isConveyor) st.push_back(i);
     const int S = (int)st.size();
 
-    // 레이아웃 상수
+    // Layout constants
     const int   perRow  = 4;
     const float nodeR   = 34.0f, cellW = 152.0f;
     const float marginX = 72.0f, marginTop = 50.0f, rowH = 122.0f;
@@ -206,15 +206,15 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
     ImDrawList* dl = ImGui::GetWindowDrawList();
     auto O = [&](ImVec2 p) { return ImVec2(origin.x + p.x, origin.y + p.y); };
 
-    // 배경 + 그리드
+    // Background + grid
     dl->AddRectFilled(origin, ImVec2(origin.x + canvasW, origin.y + canvasH), IM_COL32(28,32,38,255), 10.0f);
     for (float g = 36; g < canvasW; g += 36)
         dl->AddLine(ImVec2(origin.x+g, origin.y), ImVec2(origin.x+g, origin.y+canvasH), IM_COL32(40,45,50,80));
     for (float g = 36; g < canvasH; g += 36)
         dl->AddLine(ImVec2(origin.x, origin.y+g), ImVec2(origin.x+canvasW, origin.y+g), IM_COL32(40,45,50,80));
 
-    // ── 벨트(station 사이) ──
-    struct BeltHit { int idx; ImVec2 mn, mx; };   // 클릭 영역 (벨트도 선택 가능)
+    // -- Belts (between stations) --
+    struct BeltHit { int idx; ImVec2 mn, mx; };   // click region (belts are selectable too)
     std::vector<BeltHit> beltHits;
     const ImU32 selCol = IM_COL32(255, 214, 64, 255);
     for (int si = 0; si + 1 < S; ++si) {
@@ -231,7 +231,7 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
         if (sameRow) {
             ImVec2 a = O(ImVec2(A.x + dA*nodeR, A.y));
             ImVec2 b = O(ImVec2(B.x - dA*nodeR, B.y));
-            belt::DrawBelt(dl, a, b, false);  // a,b가 이미 흐름 방향 → 줄무늬는 항상 a→b
+            belt::DrawBelt(dl, a, b, false);  // a,b already follow the flow direction -> stripes always go a->b
             if (brk) dl->AddLine(a, b, IM_COL32(200,40,40,90), 26.0f);
             if (hasBelt) {
                 ImVec2 mn(std::min(a.x, b.x), a.y - 16), mx(std::max(a.x, b.x), a.y + 16);
@@ -244,13 +244,13 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
                 DrawPizza(dl, ImVec2(a.x + (b.x-a.x)*t, a.y + (b.y-a.y)*t), belt->conveyor.slots[s].pizza);
             }
         } else {
-            int   side  = (dA > 0) ? 1 : -1;                 // 우측 LTR / 좌측 RTL
+            int   side  = (dA > 0) ? 1 : -1;                 // right side LTR / left side RTL
             float edgeX = A.x + side * nodeR;
             float midY  = (A.y + B.y) * 0.5f;
             ImVec2 c    = O(ImVec2(edgeX, midY));
-            float a0 = -kPi * 0.5f;                          // -90° (위, A)
-            float a1 = (side > 0) ? (kPi * 0.5f)             // 우측 반원: +90°
-                                  : (-kPi * 1.5f);           // 좌측 반원: -270°
+            float a0 = -kPi * 0.5f;                          // -90 deg (top, A)
+            float a1 = (side > 0) ? (kPi * 0.5f)             // right semicircle: +90 deg
+                                  : (-kPi * 1.5f);           // left semicircle: -270 deg
             belt::DrawBeltArc(dl, c, arcR, a0, a1, dA < 0);
             if (brk) { dl->PathArcTo(c, arcR, a0, a1, 30); dl->PathStroke(IM_COL32(200,40,40,90), 0, 26.0f); }
             if (hasBelt) {
@@ -272,7 +272,7 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
         }
     }
 
-    // ── station 노드 ──
+    // -- Station nodes --
     auto drawNode = [&](int si) {
         const MachineSnap& m = M[st[si]];
         ImVec2 c = O(stCenter(si));
@@ -300,7 +300,7 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
                     m.name.c_str());
 
         if (m.state == MachineState::BROKEN) {
-            // 폰트 비의존 "고장" 표시: 빨간 X 를 선으로 직접 그린다.
+            // Font-independent "broken" indicator: draw a red X directly with lines.
             float k = 11.0f;
             dl->AddLine(ImVec2(c.x-k, c.y-3-k), ImVec2(c.x+k, c.y-3+k), IM_COL32(255,70,70,255), 3.0f);
             dl->AddLine(ImVec2(c.x-k, c.y-3+k), ImVec2(c.x+k, c.y-3-k), IM_COL32(255,70,70,255), 3.0f);
@@ -316,7 +316,7 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
     };
     for (int si = 0; si < S; ++si) drawNode(si);
 
-    // ── 입고 / 출고 표식 ──
+    // -- IN / OUT markers --
     if (S > 0) {
         ImVec2 in = O(stCenter(0));
         dl->AddText(ImVec2(in.x - nodeR - 34, in.y - 8), IM_COL32(150, 200, 150, 255), "IN");
@@ -327,7 +327,7 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
         dl->AddText(ImVec2(ox, oc.y - 8), IM_COL32(255, 210, 120, 255), buf);
     }
 
-    // ── 클릭 영역(InvisibleButton) → 선택 토글 ──
+    // -- Click regions (InvisibleButton) -> toggle selection --
     for (int si = 0; si < S; ++si) {
         ImVec2 c = O(stCenter(si));
         ImGui::SetCursorScreenPos(ImVec2(c.x - nodeR, c.y - nodeR));
@@ -372,7 +372,7 @@ void DashboardView::RenderInspector(const FactorySnap& snap, FactoryCmd& cmd)
     ImGui::TextColored(StateColor(m.state), "[%s]", StateLabel(m.state));
     ImGui::Separator();
 
-    // ── 상태 (읽기 전용) ──
+    // -- State (read-only) --
     char ov[40];
     // ImGui::Dummy(ImVec2(0, 4)); // very little blank space
     if (m.isConveyor) {
@@ -386,7 +386,7 @@ void DashboardView::RenderInspector(const FactorySnap& snap, FactoryCmd& cmd)
     // ImGui::Dummy(ImVec2(0, 8)); // very little blank space
     ImGui::Text("queue %d    output %d", m.queueDepth, m.outputCount);
 
-    // ── 설정 (조절 → cmd.tune, 다음 틱에 반영) ──
+    // -- Settings (adjustments -> cmd.tune, applied on the next tick) --
     ImGui::Separator();
     ImGui::TextDisabled("Settings (applied live)");
 
@@ -469,7 +469,7 @@ void DashboardView::RenderStatistics(const FactorySnap& snap, FactoryCmd& cmd)
 }
 
 // =============================================================================
-//  6) Orders (게임화 보너스)
+//  6) Orders (gamification bonus)
 // =============================================================================
 void DashboardView::RenderOrders(const FactorySnap& snap, FactoryCmd& cmd)
 {
@@ -525,7 +525,7 @@ void DashboardView::RenderOrders(const FactorySnap& snap, FactoryCmd& cmd)
 // (7) Machine list
 // =============================================================================
 void DashboardView::RenderMachineList(const FactorySnap& snap, FactoryCmd& cmd) {
-    // ── 머신 목록: Selectable + 상태색 + 부하/진행 ProgressBar ──
+    // -- Machine list: Selectable + state color + load/progress ProgressBar --
     ImGui::SetNextWindowPos(ImVec2(876, 420), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(396, 292), ImGuiCond_FirstUseEver);
     ImGui::Begin("Machines");

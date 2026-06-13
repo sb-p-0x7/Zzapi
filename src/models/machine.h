@@ -1,18 +1,18 @@
 #pragma once
 // =============================================================================
-// machine.h — 머신 계층
+// machine.h — machine hierarchy
 //
-//   Machine(추상 루트)
-//    ├ NonConveyorMachine(추상)  ── 한 번에 1개 피자를 processTicks 동안 가공
-//    │   └ DoughStretcher / SauceSpreader / CheeseSpreader / ToppingApplier
-//    │       / Oven / Cutter / PackagingMachine
-//    └ ConveyorMachine(추상)     ── 벨트 슬롯 위로 피자 운반(가공 없음)
-//        └ ConveyorBelt
+//   Machine (abstract root)
+//    + NonConveyorMachine (abstract)  -- processes one pizza at a time for processTicks
+//    |   + DoughStretcher / SauceSpreader / CheeseSpreader / ToppingApplier
+//    |       / Oven / Cutter / PackagingMachine
+//    + ConveyorMachine (abstract)     -- carries pizzas over belt slots (no processing)
+//        + ConveyorBelt
 //
-//   * 시뮬 루프는 base 포인터로만 다룬다. if/else 타입 분기 없음.
-//   * 이름/아이콘/스냅샷을 머신이 스스로 제공 (UI dynamic_cast 불필요).
-//   * 새 머신 = transform()+이름/아이콘 가진 subclass 하나. 루프/UI 0줄 수정.
-//   * public 데이터 멤버 없음.
+//   * The simulation loop deals only in base pointers. No if/else type branching.
+//   * Each machine provides its own name/icon/snapshot (no UI dynamic_cast needed).
+//   * A new machine = one subclass with transform() + a name/icon. Zero changes to loop/UI.
+//   * No public data members.
 // =============================================================================
 #include "../bridge.h"
 #include "pizza.h"
@@ -28,15 +28,15 @@ protected:
     float       m_maxDurability;
     bool        m_broken   = false;
     bool        m_powered  = true;
-    float       m_breakdownProb = 0.0f;   // 틱당 고장 확률 (시나리오가 설정)
+    float       m_breakdownProb = 0.0f;   // breakdown probability per tick (set by scenario)
     int         m_repairTicks   = 60;
     int         m_repairTimer   = 0;
-    int         m_produced      = 0;     // 누적 산출 개수 (Inspector output count)
+    int         m_produced      = 0;     // cumulative output count (Inspector output count)
 
     static std::mt19937& rng();
 
-    // 가공 완료 시 제품에 적용할 변형. 기본은 그대로 반환.
-    // 포장 머신만 새 BoxedPizza로 교체해 반환(원본 delete).
+    // Transform applied to the product when processing finishes. Default returns it unchanged.
+    // Only the packaging machine swaps in a new BoxedPizza and returns it (deleting the original).
     virtual Pizza* transform(Pizza* p) { return p; }
 
     void fillCommonSnap(MachineSnap& s) const;
@@ -47,13 +47,13 @@ public:
           m_durability(durability), m_maxDurability(durability) {}
     virtual ~Machine() = default;
 
-    // ── 자기 식별 (UI 분기 제거용) ──
+    // -- Self-identification (removes UI branching) --
     virtual std::string displayName() const = 0;
     virtual std::string icon()        const = 0;
-    virtual std::string getInfo()     const = 0;   // 과제 권장 인터페이스
+    virtual std::string getInfo()     const = 0;   // assignment-recommended interface
 
-    // ── 시뮬 루프 인터페이스 (다형성) ──
-    virtual void   update(int tick) = 0;   // 한 틱 진행
+    // -- Simulation-loop interface (polymorphic) --
+    virtual void   update(int tick) = 0;   // advance one tick
     virtual bool   canAccept() const = 0;
     virtual void   accept(Pizza* p)  = 0;
     virtual bool   hasOutput() const = 0;
@@ -61,7 +61,7 @@ public:
     virtual int    wipCount()  const = 0;
     virtual MachineSnap snapshot() const = 0;
 
-    // ── 공통 상태/제어 ──
+    // -- Common state/control --
     MachineState state() const;
     bool  isBroken()  const { return m_broken; }
     bool  isPowered() const { return m_powered; }
@@ -71,21 +71,21 @@ public:
     void  forceBreak();
     void  instantRepair();
     virtual void resetState();
-    // Inspector 설정 조절. 음수 필드는 무시. 벨트가 beltSpeed 처리를 확장(다형성).
+    // Inspector setting adjustment. Negative fields are ignored. Belts extend this to handle beltSpeed (polymorphism).
     virtual void tune(const MachineTune& t);
 
 protected:
-    bool tickHealth();              // 고장 굴림 + 수리 타이머. 진행 가능하면 true
+    bool tickHealth();              // breakdown roll + repair timer. Returns true if it can proceed
     void wear(float amount = 1.0f);
 };
 
 // =============================================================================
-// NonConveyorMachine — 고정형, 한 번에 1개
+// NonConveyorMachine — stationary, one at a time
 // =============================================================================
 class NonConveyorMachine : public Machine {
 protected:
-    Pizza* m_inside = nullptr;   // 가공 중인 피자
-    Pizza* m_done   = nullptr;   // 가공 끝나 배출 대기
+    Pizza* m_inside = nullptr;   // pizza being processed
+    Pizza* m_done   = nullptr;   // finished, waiting to be taken
     int    m_timer  = 0;
 
 public:
@@ -93,7 +93,7 @@ public:
         : Machine(std::move(name), processTicks, durability) {}
 
     void   update(int tick) override;
-    // 배출 대기물도 비어 있어야 새로 받음 → 막히면 자연 백업(backpressure)
+    // Accepts only when the output slot is also empty -> backpressure forms naturally when blocked
     bool   canAccept() const override { return !m_broken && m_powered && !m_inside && !m_done; }
     void   accept(Pizza* p) override  { m_inside = p; m_timer = 0; }
     bool   hasOutput() const override { return m_done != nullptr; }
@@ -104,14 +104,14 @@ public:
 };
 
 // =============================================================================
-// ConveyorMachine — 벨트 운반 (가공 없음)
+// ConveyorMachine — belt transport (no processing)
 // =============================================================================
 class ConveyorMachine : public Machine {
 protected:
     int                 m_length;
-    float               m_moveSpeed;       // 틱당 진행량 (0..1 누적)
+    float               m_moveSpeed;       // progress per tick (accumulated 0..1)
     float               m_moveProgress = 0.f;
-    std::vector<Pizza*> m_belt;            // nullptr = 빈 슬롯
+    std::vector<Pizza*> m_belt;            // nullptr = empty slot
 
 public:
     ConveyorMachine(std::string name, float durability, int length, float moveSpeed)
@@ -130,7 +130,7 @@ public:
 };
 
 // =============================================================================
-// concrete 머신들
+// concrete machines
 // =============================================================================
 class DoughStretcher : public NonConveyorMachine {
     PizzaSize m_target;
@@ -196,7 +196,7 @@ public:
 
 class PackagingMachine : public NonConveyorMachine {
 protected:
-    Pizza* transform(Pizza* p) override;   // RawDough → BoxedPizza 교체
+    Pizza* transform(Pizza* p) override;   // swap RawDough -> BoxedPizza
 public:
     PackagingMachine(int t = 4) : NonConveyorMachine("PackagingMachine", t, 100.f) {}
     std::string displayName() const override { return "Packager"; }

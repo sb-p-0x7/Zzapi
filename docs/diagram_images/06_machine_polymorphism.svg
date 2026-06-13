@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#536170"/>
+    </marker>
+    <style>
+      .title { font: 700 24px Arial, sans-serif; fill: #18212b; }
+      .label { font: 700 15px Arial, sans-serif; fill: #18212b; }
+      .small { font: 13px Arial, sans-serif; fill: #2f3b48; }
+      .tiny { font: 12px Arial, sans-serif; fill: #44515f; }
+      .box { fill: #f8fbff; stroke: #8da2b8; stroke-width: 1.4; rx: 10; }
+      .model { fill: #eef8f1; stroke: #71a87f; }
+      .ui { fill: #fff7e8; stroke: #d09a43; }
+      .boundary { fill: #f3f0ff; stroke: #8f7fd1; }
+      .control { fill: #eef6ff; stroke: #6c9eca; }
+      .abstract { fill: #f7f9fc; stroke: #657789; }
+      .edge { stroke: #536170; stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+      .inherit { stroke: #536170; stroke-width: 1.5; fill: none; marker-end: url(#arrow); stroke-dasharray: 0; }
+      .dash { stroke-dasharray: 5 5; }
+    </style>
+  </defs>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <text x="32" y="38" class="title">6. Machine Polymorphism</text>
+  
+<rect x="60" y="310" width="220" height="90" class="box model"/>
+<text x="74" y="334" class="label">Factory::step()</text>
+<text x="74" y="356" class="small">for Machine* m</text>
+<text x="74" y="374" class="small">m-&gt;update(tick)</text>
+<rect x="370" y="150" width="275" height="115" class="box"/>
+<text x="384" y="174" class="label">NonConveyorMachine::update()</text>
+<text x="384" y="196" class="small">one pizza inside</text>
+<text x="384" y="214" class="small">timer reaches processTicks</text>
+<text x="384" y="232" class="small">calls transform()</text>
+<rect x="370" y="470" width="275" height="115" class="box"/>
+<text x="384" y="494" class="label">ConveyorMachine::update()</text>
+<text x="384" y="516" class="small">slot array</text>
+<text x="384" y="534" class="small">moveProgress</text>
+<text x="384" y="552" class="small">moves pizzas forward</text>
+<rect x="735" y="90" width="205" height="65" class="box"/>
+<text x="749" y="114" class="label">DoughStretcher</text>
+<text x="749" y="136" class="small">stretch + size</text>
+<rect x="735" y="175" width="205" height="65" class="box"/>
+<text x="749" y="199" class="label">SauceSpreader</text>
+<text x="749" y="221" class="small">add sauce</text>
+<rect x="735" y="260" width="205" height="65" class="box"/>
+<text x="749" y="284" class="label">CheeseSpreader</text>
+<text x="749" y="306" class="small">add cheese</text>
+<rect x="735" y="345" width="205" height="65" class="box"/>
+<text x="749" y="369" class="label">ToppingApplier</text>
+<text x="749" y="391" class="small">add topping</text>
+<rect x="735" y="430" width="205" height="65" class="box"/>
+<text x="749" y="454" class="label">Oven</text>
+<text x="749" y="476" class="small">bake dough</text>
+<rect x="735" y="515" width="205" height="65" class="box"/>
+<text x="749" y="539" class="label">Cutter</text>
+<text x="749" y="561" class="small">cut pizza</text>
+<rect x="735" y="600" width="245" height="65" class="box"/>
+<text x="749" y="624" class="label">PackagingMachine</text>
+<text x="749" y="646" class="small">replace with BoxedPizza</text>
+<rect x="1015" y="470" width="205" height="80" class="box"/>
+<text x="1029" y="494" class="label">ConveyorBelt</text>
+<text x="1029" y="516" class="small">concrete conveyor</text>
+<text x="1029" y="534" class="small">no processing</text>
+
+<path d="M280,355 L370,205" class="edge"/>
+<text x="331" y="274" class="tiny">virtual dispatch</text>
+<path d="M280,355 L370,525" class="edge"/>
+<text x="331" y="434" class="tiny">virtual dispatch</text>
+<path d="M645,205 L735,122" class="edge"/>
+<text x="696" y="157.5" class="tiny">transform</text>
+<path d="M645,205 L735,207" class="edge"/>
+<text x="696" y="200" class="tiny">transform</text>
+<path d="M645,205 L735,292" class="edge"/>
+<text x="696" y="242.5" class="tiny">transform</text>
+<path d="M645,205 L735,377" class="edge"/>
+<text x="696" y="285" class="tiny">transform</text>
+<path d="M645,205 L735,462" class="edge"/>
+<text x="696" y="327.5" class="tiny">transform</text>
+<path d="M645,205 L735,547" class="edge"/>
+<text x="696" y="370" class="tiny">transform</text>
+<path d="M645,205 L735,632" class="edge"/>
+<text x="696" y="412.5" class="tiny">transform</text>
+<path d="M645,525 L1015,510" class="edge"/>
+<text x="836" y="511.5" class="tiny">inherits</text>
+
+</svg>

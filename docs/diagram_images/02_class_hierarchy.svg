@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="880" viewBox="0 0 1320 880">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#536170"/>
+    </marker>
+    <style>
+      .title { font: 700 24px Arial, sans-serif; fill: #18212b; }
+      .label { font: 700 15px Arial, sans-serif; fill: #18212b; }
+      .small { font: 13px Arial, sans-serif; fill: #2f3b48; }
+      .tiny { font: 12px Arial, sans-serif; fill: #44515f; }
+      .box { fill: #f8fbff; stroke: #8da2b8; stroke-width: 1.4; rx: 10; }
+      .model { fill: #eef8f1; stroke: #71a87f; }
+      .ui { fill: #fff7e8; stroke: #d09a43; }
+      .boundary { fill: #f3f0ff; stroke: #8f7fd1; }
+      .control { fill: #eef6ff; stroke: #6c9eca; }
+      .abstract { fill: #f7f9fc; stroke: #657789; }
+      .edge { stroke: #536170; stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+      .inherit { stroke: #536170; stroke-width: 1.5; fill: none; marker-end: url(#arrow); stroke-dasharray: 0; }
+      .dash { stroke-dasharray: 5 5; }
+    </style>
+  </defs>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <text x="32" y="38" class="title">2. Main Class Hierarchy</text>
+  
+<rect x="70" y="90" width="230" height="145" class="box abstract"/>
+<text x="84" y="114" class="label">Pizza &lt;&lt;abstract&gt;&gt;</text>
+<text x="84" y="136" class="small"># id, dough, size</text>
+<text x="84" y="154" class="small"># sauce, cheese, topping</text>
+<text x="84" y="172" class="small">+ getInfo()</text>
+<text x="84" y="190" class="small">+ toView()</text>
+<rect x="30" y="300" width="190" height="70" class="box"/>
+<text x="44" y="324" class="label">RawDough</text>
+<text x="44" y="346" class="small">pipeline start</text>
+<rect x="250" y="300" width="190" height="70" class="box"/>
+<text x="264" y="324" class="label">BoxedPizza</text>
+<text x="264" y="346" class="small">pipeline end</text>
+<path d="M220,300 L185,235" class="inherit"/>
+<text x="208.5" y="261.5" class="tiny">inherits</text>
+<path d="M345,300 L185,235" class="inherit"/>
+<text x="271" y="261.5" class="tiny">inherits</text>
+
+<rect x="530" y="70" width="260" height="185" class="box abstract"/>
+<text x="544" y="94" class="label">Machine &lt;&lt;abstract&gt;&gt;</text>
+<text x="544" y="116" class="small">+ update(tick)</text>
+<text x="544" y="134" class="small">+ canAccept()</text>
+<text x="544" y="152" class="small">+ accept(Pizza*)</text>
+<text x="544" y="170" class="small">+ takeOutput()</text>
+<text x="544" y="188" class="small">+ snapshot()</text>
+<text x="544" y="206" class="small"># transform(Pizza*)</text>
+<rect x="405" y="320" width="250" height="115" class="box"/>
+<text x="419" y="344" class="label">NonConveyorMachine</text>
+<text x="419" y="366" class="small">processes one pizza</text>
+<text x="419" y="384" class="small">m_inside / m_done</text>
+<text x="419" y="402" class="small">timer based</text>
+<rect x="715" y="320" width="250" height="115" class="box"/>
+<text x="729" y="344" class="label">ConveyorMachine</text>
+<text x="729" y="366" class="small">carries many pizzas</text>
+<text x="729" y="384" class="small">belt slots</text>
+<text x="729" y="402" class="small">moveSpeed</text>
+<path d="M530,320 L620,255" class="inherit"/>
+<text x="581" y="281.5" class="tiny">inherits</text>
+<path d="M840,320 L700,255" class="inherit"/>
+<text x="776" y="281.5" class="tiny">inherits</text>
+
+<rect x="320" y="505" width="185" height="60" class="box"/>
+<text x="334" y="529" class="label">DoughStretcher</text>
+<text x="334" y="551" class="small">stretch + size</text>
+<rect x="525" y="505" width="185" height="60" class="box"/>
+<text x="539" y="529" class="label">SauceSpreader</text>
+<text x="539" y="551" class="small">add sauce</text>
+<rect x="730" y="505" width="185" height="60" class="box"/>
+<text x="744" y="529" class="label">CheeseSpreader</text>
+<text x="744" y="551" class="small">add cheese</text>
+<rect x="320" y="600" width="185" height="60" class="box"/>
+<text x="334" y="624" class="label">ToppingApplier</text>
+<text x="334" y="646" class="small">add topping</text>
+<rect x="525" y="600" width="185" height="60" class="box"/>
+<text x="539" y="624" class="label">Oven</text>
+<text x="539" y="646" class="small">bake dough</text>
+<rect x="730" y="600" width="185" height="60" class="box"/>
+<text x="744" y="624" class="label">Cutter</text>
+<text x="744" y="646" class="small">cut pizza</text>
+<rect x="420" y="695" width="210" height="60" class="box"/>
+<text x="434" y="719" class="label">PackagingMachine</text>
+<text x="434" y="741" class="small">RawDough -&gt; BoxedPizza</text>
+<rect x="785" y="695" width="185" height="60" class="box"/>
+<text x="799" y="719" class="label">ConveyorBelt</text>
+<text x="799" y="741" class="small">concrete belt</text>
+<path d="M445,505 L530,435" class="inherit"/>
+
+<path d="M617,505 L530,435" class="inherit"/>
+
+<path d="M822,505 L530,435" class="inherit"/>
+
+<path d="M445,600 L530,435" class="inherit"/>
+
+<path d="M617,600 L530,435" class="inherit"/>
+
+<path d="M822,600 L530,435" class="inherit"/>
+
+<path d="M525,695 L530,435" class="inherit"/>
+
+<path d="M875,695 L840,435" class="inherit"/>
+
+
+<rect x="1040" y="90" width="230" height="115" class="box abstract"/>
+<text x="1054" y="114" class="label">Scenario &lt;&lt;abstract&gt;&gt;</text>
+<text x="1054" y="136" class="small">+ name()</text>
+<text x="1054" y="154" class="small">+ apply(Factory&amp;)</text>
+<rect x="1010" y="285" width="130" height="55" class="box"/>
+<text x="1024" y="309" class="label">NormalFlow</text>
+<rect x="1160" y="285" width="130" height="55" class="box"/>
+<text x="1174" y="309" class="label">Bottleneck</text>
+<rect x="1010" y="365" width="130" height="55" class="box"/>
+<text x="1024" y="389" class="label">RandomBreakdown</text>
+<rect x="1160" y="365" width="130" height="55" class="box"/>
+<text x="1174" y="389" class="label">Overflow</text>
+<rect x="1085" y="445" width="130" height="55" class="box"/>
+<text x="1099" y="469" class="label">GameMode</text>
+<path d="M1075,285 L1155,205" class="inherit"/>
+
+<path d="M1225,285 L1155,205" class="inherit"/>
+
+<path d="M1075,365 L1155,205" class="inherit"/>
+
+<path d="M1225,365 L1155,205" class="inherit"/>
+
+<path d="M1150,445 L1155,205" class="inherit"/>
+
+
+</svg>

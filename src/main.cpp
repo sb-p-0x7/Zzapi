@@ -8,7 +8,7 @@
 #include "app.h"
 
 // // =============================================================================
-// // 플랫폼별 한글 폰트 경로
+// // Platform-specific Korean font paths
 // // =============================================================================
 // static const char* GetKoreanFontPath()
 // {
@@ -42,7 +42,7 @@
 // }
 
 // =============================================================================
-// GLFW 에러 콜백
+// GLFW error callback
 // =============================================================================
 static void glfw_error_callback(int error, const char* description)
 {
@@ -50,11 +50,11 @@ static void glfw_error_callback(int error, const char* description)
 }
 
 // =============================================================================
-// 메인 함수 - 순수 GLFW/ImGui 보일러플레이트만 담당
+// main - handles only the pure GLFW/ImGui boilerplate
 // =============================================================================
 int main(int, char**)
 {
-    // ── GLFW 초기화 ──
+    // -- Initialize GLFW --
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
     {
@@ -62,7 +62,7 @@ int main(int, char**)
         return 1;
     }
 
-    // ── OpenGL 버전 힌트 (플랫폼별) ──
+    // -- OpenGL version hints (platform-specific) --
 #if defined(__APPLE__)
     const char* glsl_version = "#version 150";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -77,7 +77,7 @@ int main(int, char**)
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    // ── 윈도우 생성 ──
+    // -- Create the window --
     GLFWwindow* window = glfwCreateWindow(1280, 720, "PizzaFactory", nullptr, nullptr);
     if (window == nullptr)
     {
@@ -88,7 +88,7 @@ int main(int, char**)
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
 
-    // ── ImGui 컨텍스트 설정 ──
+    // -- Set up the ImGui context --
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -104,11 +104,11 @@ int main(int, char**)
     style.WindowPadding     = ImVec2(12, 12);
     style.FramePadding      = ImVec2(8, 4);
 
-    // ── ImGui 백엔드 초기화 ──
+    // -- Initialize the ImGui backends --
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
-    // // ── 한글 폰트 로드 ──
+    // // -- Load a Korean font --
     // {
     //     const char* fontPath = GetKoreanFontPath();
     //     if (fontPath)
@@ -150,11 +150,11 @@ int main(int, char**)
 
     io.Fonts->AddFontDefault(); // Explicit Font Path 
 
-    // ── 앱 초기화 ──
+    // -- Initialize the app --
     App app;
     app.Init();
 
-    // ── 메인 루프 ──
+    // -- Main loop --
     ImVec4 clear_color = ImVec4(0.10f, 0.10f, 0.12f, 1.00f);
 
     while (!glfwWindowShouldClose(window))
@@ -171,7 +171,7 @@ int main(int, char**)
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // ── 앱 업데이트 (MVC 렌더링) ──
+        // -- Update the app (MVC rendering) --
         app.Update();
 
         ImGui::Render();
@@ -190,7 +190,7 @@ int main(int, char**)
         glfwSwapBuffers(window);
     }
 
-    // ── 정리 ──
+    // -- Cleanup --
     app.Shutdown();
 
     ImGui_ImplOpenGL3_Shutdown();

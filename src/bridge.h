@@ -1,19 +1,19 @@
 #pragma once
 // =============================================================================
-// bridge.h — UI ↔ 백엔드 경계 계약
+// bridge.h — UI <-> backend boundary contract
 //
-//  * 이 파일은 UI(ui/)와 백엔드(sim/) 양쪽에서 include 한다.
-//  * 메서드 없는 순수 데이터(POD)만 둔다. ImGui도 sim 타입도 여기서 모른다.
-//  * 백엔드 → UI : FactorySnap (값 복사 스냅샷, UI는 항상 한 프레임 뒤)
-//  * UI → 백엔드 : FactoryCmd  (한 프레임 동안만 true 인 명령)
+//  * Included by both the UI (ui/) and the backend (sim/).
+//  * Holds only plain data (POD) with no methods. It knows neither ImGui nor sim types.
+//  * backend -> UI : FactorySnap (value-copied snapshot; the UI is always one frame behind)
+//  * UI -> backend : FactoryCmd  (a command that is true for a single frame only)
 // =============================================================================
 #include <string>
 #include <vector>
 
-// ── 머신 상태 (색상 코딩용) ──
+// -- Machine state (used for color coding) --
 enum class MachineState { IDLE, WORKING, BROKEN, OFF };
 
-// ── 피자 "겉모습"만 담은 값 구조체 (포인터 아님) ──
+// -- Value struct holding only a pizza's "appearance" (not a pointer) --
 //    doughStage: 0=RAW, 1=STRETCHED, 2=BAKED
 struct PizzaView {
     int  id        = -1;
@@ -26,66 +26,66 @@ struct PizzaView {
     bool boxed      = false;
 };
 
-// ── 컨베이어 한 칸 ──
+// -- One conveyor cell --
 struct SlotView {
     bool      occupied = false;
     PizzaView pizza;
 };
 
-// ── 컨베이어 스냅샷 ──
+// -- Conveyor snapshot --
 struct ConveyorSnap {
     std::vector<SlotView> slots;
-    float moveProgress = 0.0f;   // 0..1, 칸 사이 이동 진행도 → UI가 보간
+    float moveProgress = 0.0f;   // 0..1, progress between cells -> UI interpolates
 };
 
-// ── Inspector → 머신 설정 조절 (음수 = 변경 없음) ──
+// -- Inspector -> machine setting adjustment (negative = no change) --
 struct MachineTune {
-    int   processTicks = -1;    // 비-벨트: 가공 시간 (틱)
-    float healthPct    = -1.f;  // 0..1 내구도
-    float breakProb    = -1.f;  // 0..1 틱당 고장 확률
-    float beltSpeed    = -1.f;  // 벨트만: 틱당 진행량 (0..1)
+    int   processTicks = -1;    // non-belt: process time (ticks)
+    float healthPct    = -1.f;  // 0..1 durability
+    float breakProb    = -1.f;  // 0..1 breakdown probability per tick
+    float beltSpeed    = -1.f;  // belt only: progress per tick (0..1)
 };
 
-// ── 머신 한 개 스냅샷 ──
+// -- Snapshot of a single machine --
 struct MachineSnap {
     int          id          = -1;
-    std::string  name;                       // UI는 dynamic_cast 안 함
+    std::string  name;                       // UI does no dynamic_cast
     std::string  icon;
     MachineState state        = MachineState::IDLE;
-    float        healthPct    = 1.0f;         // 0..1 → ProgressBar
-    float        progressPct  = 0.0f;         // 0..1 → ProgressBar
-    int          processTicks = 0;            // Inspector 표시용
-    int          queueDepth   = 0;            // Inspector: 머신 안 대기물 수
-    int          outputCount  = 0;            // Inspector: 누적 산출 개수
-    float        breakProb    = 0.0f;          // Inspector 슬라이더 표시용
-    float        beltSpeed    = 0.0f;          // 벨트일 때만 유효
+    float        healthPct    = 1.0f;         // 0..1 -> ProgressBar
+    float        progressPct  = 0.0f;         // 0..1 -> ProgressBar
+    int          processTicks = 0;            // shown in Inspector
+    int          queueDepth   = 0;            // Inspector: items waiting inside the machine
+    int          outputCount  = 0;            // Inspector: cumulative output count
+    float        breakProb    = 0.0f;          // shown on Inspector slider
+    float        beltSpeed    = 0.0f;          // valid only when this is a belt
     bool         hasPizzaInside = false;
     PizzaView    pizzaInside;
     bool         isConveyor   = false;
-    ConveyorSnap conveyor;                    // isConveyor 일 때만 유효
+    ConveyorSnap conveyor;                    // valid only when isConveyor
 };
 
-// ── 주문 한 건 스냅샷 ──
+// -- Snapshot of a single order --
 struct OrderSnap {
     int         id        = -1;
-    std::string desc;                 // 요구사항 요약
+    std::string desc;                 // requirement summary
     int         ticksLeft = 0;
     int         reward    = 0;
 };
 
-// ── 공장 전체 스냅샷 ──
+// -- Snapshot of the whole factory --
 struct FactorySnap {
     long                     tick    = 0;
     bool                     running = false;
     int                      speed   = 1;
     int                      scenario = 0;
-    int                      spawnInterval = 0;   // 현재 도우 투입 주기(틱)
-    std::vector<std::string> scenarioNames;   // 드롭다운용
+    int                      spawnInterval = 0;   // current dough spawn interval (ticks)
+    std::vector<std::string> scenarioNames;   // for the dropdown
     std::vector<MachineSnap> machines;
     std::vector<OrderSnap>   orders;
-    bool                     ordersEnabled = false;   // 게임모드(주문)일 때만 true
-    std::vector<std::string> eventLog;        // 타임스탬프 포함 문자열
-    // 통계
+    bool                     ordersEnabled = false;   // true only in game mode (orders)
+    std::vector<std::string> eventLog;        // strings including a timestamp
+    // statistics
     int money           = 0;
     int finishedGoods   = 0;
     int wipCount        = 0;
@@ -93,17 +93,17 @@ struct FactorySnap {
     int lostProducts    = 0;
 };
 
-// ── UI → 백엔드 명령 (한 프레임만 true) ──
+// -- UI -> backend command (true for a single frame only) --
 struct FactoryCmd {
     bool start         = false;
     bool pause         = false;
     bool reset         = false;
     int  speed         = 1;     // 1..5
-    int  scenario      = -1;    // -1 = 변경 없음
+    int  scenario      = -1;    // -1 = no change
     int  selectedMachine = -1;
     bool forceBreak    = false;
     bool instantRepair = false;
     bool clearLog      = false;
-    int  spawnInterval = -1;    // 도우 투입 주기(틱). -1 = 변경 없음
-    MachineTune tune;           // selectedMachine 에 적용 (음수 필드 = 무시)
+    int  spawnInterval = -1;    // dough spawn interval (ticks). -1 = no change
+    MachineTune tune;           // applied to selectedMachine (negative fields = ignored)
 };

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="720" viewBox="0 0 1180 720">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#536170"/>
+    </marker>
+    <style>
+      .title { font: 700 24px Arial, sans-serif; fill: #18212b; }
+      .label { font: 700 15px Arial, sans-serif; fill: #18212b; }
+      .small { font: 13px Arial, sans-serif; fill: #2f3b48; }
+      .tiny { font: 12px Arial, sans-serif; fill: #44515f; }
+      .box { fill: #f8fbff; stroke: #8da2b8; stroke-width: 1.4; rx: 10; }
+      .model { fill: #eef8f1; stroke: #71a87f; }
+      .ui { fill: #fff7e8; stroke: #d09a43; }
+      .boundary { fill: #f3f0ff; stroke: #8f7fd1; }
+      .control { fill: #eef6ff; stroke: #6c9eca; }
+      .abstract { fill: #f7f9fc; stroke: #657789; }
+      .edge { stroke: #536170; stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+      .inherit { stroke: #536170; stroke-width: 1.5; fill: none; marker-end: url(#arrow); stroke-dasharray: 0; }
+      .dash { stroke-dasharray: 5 5; }
+    </style>
+  </defs>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <text x="32" y="38" class="title">3. Object Relationships</text>
+  
+<rect x="455" y="75" width="270" height="145" class="box model"/>
+<text x="469" y="99" class="label">Factory</text>
+<text x="469" y="121" class="small">tick, running, speed</text>
+<text x="469" y="139" class="small">money, finished, lost</text>
+<text x="469" y="157" class="small">breakdowns</text>
+<text x="469" y="175" class="small">aggregate root</text>
+<rect x="80" y="290" width="230" height="120" class="box"/>
+<text x="94" y="314" class="label">Machine</text>
+<text x="94" y="336" class="small">name, durability</text>
+<text x="94" y="354" class="small">processTicks</text>
+<text x="94" y="372" class="small">broken / powered</text>
+<rect x="455" y="300" width="270" height="120" class="box"/>
+<text x="469" y="324" class="label">OrderBook</text>
+<text x="469" y="346" class="small">active orders</text>
+<text x="469" y="364" class="small">completed / failed</text>
+<text x="469" y="382" class="small">generates new orders</text>
+<rect x="830" y="300" width="230" height="120" class="box"/>
+<text x="844" y="324" class="label">Scenario</text>
+<text x="844" y="346" class="small">name()</text>
+<text x="844" y="364" class="small">apply(Factory&amp;)</text>
+<text x="844" y="382" class="small">runtime configuration</text>
+<rect x="80" y="520" width="230" height="110" class="box"/>
+<text x="94" y="544" class="label">Pizza</text>
+<text x="94" y="566" class="small">id, dough, size</text>
+<text x="94" y="584" class="small">sauce / cheese / topping</text>
+<text x="94" y="602" class="small">cut / boxed</text>
+<rect x="455" y="520" width="270" height="110" class="box"/>
+<text x="469" y="544" class="label">Order</text>
+<text x="469" y="566" class="small">requirements</text>
+<text x="469" y="584" class="small">ticksLeft</text>
+<text x="469" y="602" class="small">reward / status</text>
+
+<path d="M455,150 L310,335" class="edge"/>
+<text x="388.5" y="236.5" class="tiny">owns many</text>
+<path d="M590,220 L590,300" class="edge"/>
+<text x="596" y="254" class="tiny">owns</text>
+<path d="M725,150 L830,335" class="edge"/>
+<text x="783.5" y="236.5" class="tiny">configured by</text>
+<path d="M310,350 L455,350" class="edge"/>
+<text x="388.5" y="344" class="tiny">pipeline belongs to</text>
+<path d="M590,420 L590,520" class="edge"/>
+<text x="596" y="464" class="tiny">manages many</text>
+<path d="M195,410 L195,520" class="edge"/>
+<text x="201" y="459" class="tiny">processes / carries</text>
+<path d="M455,575 L310,575" class="edge"/>
+<text x="388.5" y="569" class="tiny">fulfilled by match</text>
+
+</svg>

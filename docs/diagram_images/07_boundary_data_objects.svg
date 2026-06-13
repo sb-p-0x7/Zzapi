@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="780" viewBox="0 0 1180 780">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#536170"/>
+    </marker>
+    <style>
+      .title { font: 700 24px Arial, sans-serif; fill: #18212b; }
+      .label { font: 700 15px Arial, sans-serif; fill: #18212b; }
+      .small { font: 13px Arial, sans-serif; fill: #2f3b48; }
+      .tiny { font: 12px Arial, sans-serif; fill: #44515f; }
+      .box { fill: #f8fbff; stroke: #8da2b8; stroke-width: 1.4; rx: 10; }
+      .model { fill: #eef8f1; stroke: #71a87f; }
+      .ui { fill: #fff7e8; stroke: #d09a43; }
+      .boundary { fill: #f3f0ff; stroke: #8f7fd1; }
+      .control { fill: #eef6ff; stroke: #6c9eca; }
+      .abstract { fill: #f7f9fc; stroke: #657789; }
+      .edge { stroke: #536170; stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+      .inherit { stroke: #536170; stroke-width: 1.5; fill: none; marker-end: url(#arrow); stroke-dasharray: 0; }
+      .dash { stroke-dasharray: 5 5; }
+    </style>
+  </defs>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <text x="32" y="38" class="title">7. Boundary Data Objects</text>
+  
+<rect x="80" y="95" width="270" height="170" class="box boundary"/>
+<text x="94" y="119" class="label">FactorySnap</text>
+<text x="94" y="141" class="small">tick, running, speed</text>
+<text x="94" y="159" class="small">machines: MachineSnap[]</text>
+<text x="94" y="177" class="small">orders: OrderSnap[]</text>
+<text x="94" y="195" class="small">eventLog</text>
+<text x="94" y="213" class="small">statistics</text>
+<rect x="455" y="80" width="270" height="180" class="box boundary"/>
+<text x="469" y="104" class="label">MachineSnap</text>
+<text x="469" y="126" class="small">id, name, icon</text>
+<text x="469" y="144" class="small">state</text>
+<text x="469" y="162" class="small">healthPct / progressPct</text>
+<text x="469" y="180" class="small">isConveyor</text>
+<text x="469" y="198" class="small">pizzaInside</text>
+<rect x="830" y="95" width="270" height="155" class="box boundary"/>
+<text x="844" y="119" class="label">PizzaView</text>
+<text x="844" y="141" class="small">id, doughStage, size</text>
+<text x="844" y="159" class="small">sauce, cheese, topping</text>
+<text x="844" y="177" class="small">cut, boxed</text>
+<rect x="455" y="340" width="270" height="145" class="box boundary"/>
+<text x="469" y="364" class="label">ConveyorSnap</text>
+<text x="469" y="386" class="small">slots: SlotView[]</text>
+<text x="469" y="404" class="small">moveProgress</text>
+<rect x="830" y="340" width="270" height="145" class="box boundary"/>
+<text x="844" y="364" class="label">OrderSnap</text>
+<text x="844" y="386" class="small">id</text>
+<text x="844" y="404" class="small">desc</text>
+<text x="844" y="422" class="small">ticksLeft</text>
+<text x="844" y="440" class="small">reward</text>
+<rect x="80" y="565" width="270" height="145" class="box boundary"/>
+<text x="94" y="589" class="label">FactoryCmd</text>
+<text x="94" y="611" class="small">start / pause / reset</text>
+<text x="94" y="629" class="small">speed / scenario</text>
+<text x="94" y="647" class="small">selectedMachine</text>
+<text x="94" y="665" class="small">forceBreak / repair</text>
+<rect x="455" y="565" width="270" height="145" class="box boundary"/>
+<text x="469" y="589" class="label">MachineTune</text>
+<text x="469" y="611" class="small">processTicks</text>
+<text x="469" y="629" class="small">healthPct</text>
+<text x="469" y="647" class="small">breakProb</text>
+<text x="469" y="665" class="small">beltSpeed</text>
+
+<path d="M350,180 L455,170" class="edge"/>
+<text x="408.5" y="169" class="tiny">contains</text>
+<path d="M725,170 L830,170" class="edge"/>
+<text x="783.5" y="164" class="tiny">contains</text>
+<path d="M590,260 L590,340" class="edge"/>
+<text x="596" y="294" class="tiny">optional</text>
+<path d="M350,180 L350,415 L830,415" class="edge"/>
+<text x="356" y="409" class="tiny">contains orders</text>
+<path d="M350,637 L455,637" class="edge"/>
+<text x="408.5" y="631" class="tiny">contains</text>
+
+</svg>

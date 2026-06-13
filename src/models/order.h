@@ -1,12 +1,12 @@
 #pragma once
 // =============================================================================
-// order.h — 주문/경제 (게임 레이어)
+// order.h — orders/economy (game layer)
 //
-//   Order      : 손님 한 명의 요구사항 + 마감시간 + 보상 + 상태
-//   OrderBook  : 활성/완료/실패 주문 관리. 주기적 생성, 마감 처리, 완성품 매칭.
+//   Order      : one customer's requirements + deadline + reward + status
+//   OrderBook  : manages active/completed/failed orders. Periodic generation, deadline handling, finished-good matching.
 //
-//   * 지금은 모델만 완성해 두고, Factory가 완성품 출고 시 tryFulfill()을 호출.
-//   * 4단계(돈→업그레이드)는 OrderBook 보상 위에 얹어 확장.
+//   * For now only the model is implemented; Factory calls tryFulfill() when a finished good ships.
+//   * Stage 4 (money -> upgrades) extends on top of the OrderBook reward.
 // =============================================================================
 #include "pizza.h"
 #include "../bridge.h"
@@ -39,16 +39,16 @@ public:
     OrderStatus status()    const { return m_status; }
     void        setStatus(OrderStatus s) { m_status = s; }
 
-    bool tickExpire();                  // 마감 카운트다운. 0이 되면 true(실패)
-    bool matches(const Pizza& p) const; // 완성품이 요구사항을 충족하나
-    std::string desc() const;           // 스냅샷/로그용 요약
+    bool tickExpire();                  // deadline countdown. Returns true (failed) when it hits 0
+    bool matches(const Pizza& p) const; // does the finished good meet the requirements
+    std::string desc() const;           // summary for snapshot/log
 };
 
 class OrderBook {
 private:
     std::vector<Order> m_active;
     int m_nextId      = 1;
-    int m_genEvery    = 120;    // N틱마다 새 주문
+    int m_genEvery    = 120;    // a new order every N ticks
     int m_genTimer    = 0;
     int m_maxActive   = 5;
     int m_completed   = 0;
@@ -58,11 +58,11 @@ private:
     void generate();
 
 public:
-    void update(int tick);              // 주문 생성 + 마감 처리
-    int  tryFulfill(const Pizza& p);    // 매칭되면 reward 반환, 없으면 0
+    void update(int tick);              // generate orders + handle deadlines
+    int  tryFulfill(const Pizza& p);    // returns reward if matched, else 0
     void reset();
 
     int  completed() const { return m_completed; }
     int  failed()    const { return m_failed; }
-    void fillSnap(std::vector<OrderSnap>& out) const;   // bridge.h 스냅샷 채우기
+    void fillSnap(std::vector<OrderSnap>& out) const;   // fill the bridge.h snapshot
 };

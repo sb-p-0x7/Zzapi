@@ -1,20 +1,20 @@
 #pragma once
 
 // =============================================================================
-// Application 클래스
-// MVC 컴포넌트를 관리하는 최상위 앱 클래스
-// main.cpp의 ImGui 루프에서 호출됩니다.
+// Application class
+// Top-level app class that manages the MVC components.
+// Called from the ImGui loop in main.cpp.
 // =============================================================================
 
 class App
 {
 public:
-    /// 앱 초기화 (모델, 뷰, 컨트롤러 생성)
+    /// Initialize the app (create the model, view, and controller)
     void Init();
 
-    /// 매 프레임 호출 (ImGui::NewFrame ~ ImGui::Render 사이)
+    /// Called every frame (between ImGui::NewFrame and ImGui::Render)
     void Update();
 
-    /// 앱 종료 시 정리
+    /// Cleanup on app shutdown
     void Shutdown();
 };

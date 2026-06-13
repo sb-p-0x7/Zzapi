@@ -5,11 +5,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # =============================================================================
-# Dependencies via FetchContent (자동 다운로드 - 별도 설치 불필요)
+# Dependencies via FetchContent (auto-downloaded - no separate install needed)
 # =============================================================================
 include(FetchContent)
 
-# --- GLFW (윈도우 생성 및 입력 처리) ---
+# --- GLFW (window creation and input handling) ---
 FetchContent_Declare(
     glfw
     GIT_REPOSITORY https://github.com/glfw/glfw.git
@@ -31,7 +31,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imgui)
 
-# ImGui 소스 파일 구성 (코어 + GLFW/OpenGL3 백엔드)
+# ImGui source files (core + GLFW/OpenGL3 backends)
 set(IMGUI_SOURCES
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_demo.cpp
@@ -42,7 +42,7 @@ set(IMGUI_SOURCES
     ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
 )
 
-# ImGui를 정적 라이브러리로 빌드
+# Build ImGui as a static library
 add_library(imgui_lib STATIC ${IMGUI_SOURCES})
 target_include_directories(imgui_lib PUBLIC
     ${imgui_SOURCE_DIR}
@@ -51,10 +51,10 @@ target_include_directories(imgui_lib PUBLIC
 target_link_libraries(imgui_lib PUBLIC glfw)
 
 # =============================================================================
-# 플랫폼별 OpenGL 링크 설정
+# Platform-specific OpenGL link settings
 # =============================================================================
 if(APPLE)
-    # macOS: OpenGL framework 사용
+    # macOS: use the OpenGL framework
     find_library(OPENGL_FRAMEWORK OpenGL REQUIRED)
     find_library(COCOA_FRAMEWORK Cocoa REQUIRED)
     find_library(IOKIT_FRAMEWORK IOKit REQUIRED)
@@ -65,20 +65,20 @@ if(APPLE)
         ${IOKIT_FRAMEWORK}
         ${COREVIDEO_FRAMEWORK}
     )
-    # macOS OpenGL deprecation 경고 억제
+    # Suppress macOS OpenGL deprecation warnings
     target_compile_definitions(imgui_lib PUBLIC GL_SILENCE_DEPRECATION)
 elseif(WIN32)
-    # Windows: opengl32 링크
+    # Windows: link opengl32
     find_package(OpenGL REQUIRED)
     target_link_libraries(imgui_lib PUBLIC OpenGL::GL)
 else()
-    # Linux (선택적 지원)
+    # Linux (optional support)
     find_package(OpenGL REQUIRED)
     target_link_libraries(imgui_lib PUBLIC OpenGL::GL)
 endif()
 
 # =============================================================================
-# 메인 실행파일
+# Main executable
 # =============================================================================
 file(GLOB_RECURSE APP_SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 
@@ -88,15 +88,15 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui_lib)
 
-# MSVC: 소스가 UTF-8(BOM 없음)이므로 명시하지 않으면 시스템 코드페이지(CP949 등)로
-# 잘못 해석돼 한글/기호 리터럴이 깨지거나 컴파일 에러가 난다. /utf-8 로 소스·실행
-# 인코딩을 모두 UTF-8 로 고정한다. (MinGW/Clang/GCC 는 기본 UTF-8 라 불필요.)
+# MSVC: the sources are UTF-8 (no BOM), so without this they would be misread as the
+# system code page (e.g. CP949), corrupting symbol literals or causing compile errors.
+# /utf-8 pins both the source and execution encodings to UTF-8. (Not needed on MinGW/Clang/GCC, which default to UTF-8.)
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /utf-8)
 endif()
 
 # =============================================================================
-# 빌드 후 안내 메시지
+# Post-build message
 # =============================================================================
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E echo "========================================="

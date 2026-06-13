@@ -5,7 +5,10 @@
 > Raw dough enters, flows through machines and conveyor belts, and leaves as a boxed pizza
 > that you ship against incoming customer orders for money.
 
-🇰🇷 한국어 문서: [README.ko.md](README.ko.md)
+<!-- After taking a screenshot of the running app, save it as docs/screenshot.png and
+     uncomment the next line:
+![Zzapi dashboard](docs/screenshot.png)
+-->
 
 ---
 
@@ -32,7 +35,7 @@ cmake --build build --parallel
 > **Windows note:** Visual Studio is a multi-config generator, so `-DCMAKE_BUILD_TYPE` is
 > ignored — build with `cmake --build build --config Release` and run
 > `build\Release\PizzaFactory.exe`. The build sets MSVC `/utf-8` automatically (sources are
-> UTF-8), so text renders correctly; MinGW/Clang/GCC need no extra flag.
+> UTF-8); MinGW/Clang/GCC need no extra flag.
 
 ---
 
@@ -42,12 +45,12 @@ The app opens six windows (drag them around freely):
 
 | Window | What it does |
 |---|---|
-| **Simulation Control** | `Start` / `Pause` / `Reset`, a **Speed** slider (1×–5×), a **Scenario** dropdown, the live tick counter and cash. |
-| **Factory Floor** | The animated pipeline. Machines are colour-coded by state; pizzas are drawn on belts and move in real time. Click a node — or a row in the machine list below — to select it. Each row shows a progress / conveyor-load bar. |
-| **Inspector** | Full detail for the selected machine: state, health bar, progress bar, queue depth, output count, process time, plus **Force Break** and **Instant Repair**. |
+| **Simulation Control** | `Start` / `Pause` / `Reset`, a **Speed** slider (1×–5×), an **input-rate** slider, a **Scenario** dropdown, the live tick counter and cash. |
+| **Factory Floor** | The animated pipeline. Machines are colour-coded by state; pizzas are drawn on belts and move in real time. Click a node — or a belt, or a row in the **Machines** window — to select it. |
+| **Inspector** | Full detail for the selected machine: state, health bar, progress / conveyor-load bar, queue depth, output count, plus live **Health / Process time / Belt speed / Break odds** tuning and **Force Break** / **Instant Repair**. |
 | **Event Log** | Timestamped scrolling log (shipments, breakdowns, scenario loads). **Clear** button + auto-scroll toggle. |
 | **Statistics** | Running totals: finished goods, WIP, breakdowns, lost products, earnings. |
-| **Orders** | Incoming customer orders (size + toppings required), the reward, and a countdown bar. |
+| **Orders** | Incoming customer orders (size + toppings required), the reward, and a countdown bar. Active in Game Mode only. |
 
 **Machine state colours:** 🟦 Idle · 🟩 Working · 🟥 Broken (flashing) · ⬛ Off.
 
@@ -56,30 +59,22 @@ Press **Start**, watch dough flow left-to-right through the snaking pipeline, an
 
 ---
 
-## 3. Architecture — UI ⇄ backend are fully decoupled
+## 3. Architecture — UI and backend are fully decoupled
 
 The simulation logic never touches ImGui, and the UI never touches a simulation object.
 They communicate only through two **plain value structs** in [`src/bridge.h`](src/bridge.h):
+`FactorySnap` (backend → UI, read-only) and `FactoryCmd` (UI → backend, one-frame flags).
 
-```
-   ┌────────────────────┐   FactorySnap  (read-only copy)   ┌─────────────────────┐
-   │  DashboardView      │ ◄──────────────────────────────── │  Factory            │
-   │  (ImGui, src/views) │                                   │  (sim, src/models)  │
-   │  draws snapshot     │   FactoryCmd   (one-frame flags)  │  owns Machine* etc. │
-   └────────────────────┘ ────────────────────────────────► └─────────────────────┘
-            ▲                                                          ▲
-            └───────────────── FactoryController ──────────────────────┘
-                         maps cmd → Factory control methods
-```
+![Overall architecture](docs/diagram_images/01_overall_architecture.svg)
 
 The only file that sees both sides is [`src/app.cpp`](src/app.cpp). Each frame:
 
 ```cpp
 FactorySnap snap = factory.snapshot();   // 1. read-only snapshot
 view.Render(snap, cmd);                  // 2. buttons set cmd flags
-controller.applyCmd(cmd);                // 3. cmd → factory.start()/forceBreak()/…
+controller.applyCmd(cmd);                // 3. cmd -> factory.start()/forceBreak()/...
 cmd = FactoryCmd{};                      // 4. clear so a command never fires twice
-controller.advance(dt);                  // 5. step the sim (speed × base tick rate)
+controller.advance(dt);                  // 5. step the sim (speed x base tick rate)
 ```
 
 The UI is therefore always **one frame behind** — it reads `snap.state`, never
@@ -96,8 +91,8 @@ Machine (abstract)
  └─ ConveyorMachine (abstract) ───── carries pizzas across belt slots
       └─ ConveyorBelt
 
-Pizza (abstract) ├─ RawDough (pipeline start) └─ BoxedPizza (pipeline end)
-Scenario (abstract) ├─ NormalFlow ├─ Bottleneck ├─ RandomBreakdown ├─ Overflow └─ FreePlay
+Pizza (abstract)    ├─ RawDough (pipeline start)   └─ BoxedPizza (pipeline end)
+Scenario (abstract) ├─ NormalFlow ├─ Bottleneck ├─ RandomBreakdown ├─ Overflow └─ GameMode
 ```
 
 `Factory::step()` is `for (Machine* m : pipeline) m->update(tick);` — pure polymorphism.
@@ -105,7 +100,9 @@ Adding a new machine is one subclass with `transform()` + `displayName()`; **the
 the UI loop change by zero lines** because each machine fills its own `MachineSnap`.
 Every data member on every class is `private`/`protected`.
 
-See [DESIGN.md](DESIGN.md) for the full design doc, UML and ER diagrams.
+📐 **Full diagrams** (class hierarchy, ER, runtime sequence, tick flow, polymorphism, boundary
+objects) are in [docs/oop_architecture_diagrams.md](docs/oop_architecture_diagrams.md), with
+rendered images in [docs/diagram_images/](docs/diagram_images).
 
 ---
 
@@ -131,18 +128,18 @@ stage are counted as **lost products**.
 
 ### Scenarios (runtime dropdown)
 
-Orders/economy are **game-mode only** — the four demo scenarios run order-free, so their
+Orders/economy are **Game-Mode only** — the four demo scenarios run order-free, so their
 `lost products` reflects pure production loss and money stays 0.
 
 - **Normal flow** — low-load pipeline, no breakdowns. Everything that enters ships.
-- **Bottleneck** — a very slow Oven (40 ticks) throttles the line, so throughput collapses
-  (lowest finished count) and work backs up behind it.
+- **Bottleneck** — one randomly chosen stage is made very slow (40 ticks), so throughput
+  collapses and work backs up behind it.
 - **Random breakdowns** — every machine has a per-tick breakdown chance; failures stall the
   line and drop product.
 - **Overflow** — a moderate Oven bottleneck (12 ticks) is flooded with input (a dough every
   3 ticks), so the line wastes roughly as much as it produces. (Belt length has no effect on
   loss — loss is purely input rate vs the slowest stage's drain rate.)
-- **Free Play** — the game mode: customer orders + economy + light breakdowns.
+- **Game Mode** — customer orders + economy + light breakdowns.
 
 ---
 
@@ -159,8 +156,8 @@ Orders/economy are **game-mode only** — the four demo scenarios run order-free
 | Scenario dropdown (polymorphic) | `Scenario` + `scenarioNames` in snapshot |
 | 5 required ImGui windows + widgets | Simulation Control / Factory Floor / Inspector / Event Log / Statistics (+ Orders) |
 
-Required ImGui widgets are all present: `Button`, `SliderInt`, `Combo`, `ProgressBar`,
-`TextColored`, `BeginChild/EndChild`, `Selectable`.
+Required ImGui widgets are all present: `Button`, `SliderInt`, `SliderFloat`, `Combo`,
+`ProgressBar`, `TextColored`, `BeginChild/EndChild`, `Selectable`.
 
 ---
 
@@ -169,38 +166,30 @@ Required ImGui widgets are all present: `Button`, `SliderInt`, `Combo`, `Progres
 ```
 Zzapi/
 ├── CMakeLists.txt          # cross-platform build (auto-fetches GLFW + ImGui)
-├── DESIGN.md               # architecture, UML, ER diagrams
-├── README.md / README.ko.md
-├── scripts/
-│   ├── build.sh / build.bat   # convenience build scripts
-│   └── sim_test.cpp           # headless backend driver (no ImGui)
+├── README.md
+├── docs/
+│   ├── oop_architecture_diagrams.md   # full UML / ER / sequence diagrams (Mermaid)
+│   └── diagram_images/                # rendered SVGs of the diagrams above
 └── src/
-    ├── bridge.h            # UI ⇄ backend contract (POD: FactorySnap / FactoryCmd)
+    ├── bridge.h            # UI <-> backend contract (POD: FactorySnap / FactoryCmd)
     ├── main.cpp            # GLFW + ImGui boilerplate
     ├── app.{h,cpp}         # the one seam that sees both sides
     ├── models/             # backend (ImGui-free)
     │   ├── pizza.{h,cpp}  machine.{h,cpp}  factory.{h,cpp}
     │   └── order.{h,cpp}  scenario.{h,cpp}
     ├── controllers/
-    │   └── factory_controller.{h,cpp}   # cmd → factory, tick cadence
+    │   └── factory_controller.{h,cpp}   # cmd -> factory, tick cadence
     └── views/
-        ├── dashboard_view.{h,cpp}       # snapshot → ImGui (bridge.h only)
+        ├── dashboard_view.{h,cpp}       # snapshot -> ImGui (bridge.h only)
         └── belt_render.{h,cpp}          # conveyor-belt drawing primitives (imgui-only)
 ```
-
-### Headless backend test
-```bash
-g++ -std=c++17 scripts/sim_test.cpp src/models/*.cpp -Isrc -o /tmp/simtest && /tmp/simtest
-```
-Runs 1200 ticks and prints machine states, orders, and the event log — handy for verifying
-the simulation without opening the GUI.
 
 ---
 
 ## 7. Notes & known limitations
-- **Fonts:** the bundled fonts cover Latin/Korean + BMP symbols (▶ ⏸ ↻ ⚠). Astral-plane
-  colour emoji (🍕, 🔥…) are intentionally avoided because the default ImGui rasterizer
-  cannot render them.
+- **Fonts:** the default ImGui font covers ASCII and common BMP symbols (▶ ⏸ ↻ ⚠).
+  Astral-plane colour emoji (🍕, 🔥…) are intentionally avoided because the default ImGui
+  rasterizer cannot render them — the "broken" mark, for example, is drawn as a red X.
 - **Balance:** the factory always produces **Medium** pizzas, so orders are generated at
   Medium too and are fulfillable (shipping a matching pizza clears the oldest order).
   Variable-size production with size-based order matching is a planned gameplay extension.

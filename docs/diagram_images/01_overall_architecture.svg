@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#536170"/>
+    </marker>
+    <style>
+      .title { font: 700 24px Arial, sans-serif; fill: #18212b; }
+      .label { font: 700 15px Arial, sans-serif; fill: #18212b; }
+      .small { font: 13px Arial, sans-serif; fill: #2f3b48; }
+      .tiny { font: 12px Arial, sans-serif; fill: #44515f; }
+      .box { fill: #f8fbff; stroke: #8da2b8; stroke-width: 1.4; rx: 10; }
+      .model { fill: #eef8f1; stroke: #71a87f; }
+      .ui { fill: #fff7e8; stroke: #d09a43; }
+      .boundary { fill: #f3f0ff; stroke: #8f7fd1; }
+      .control { fill: #eef6ff; stroke: #6c9eca; }
+      .abstract { fill: #f7f9fc; stroke: #657789; }
+      .edge { stroke: #536170; stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+      .inherit { stroke: #536170; stroke-width: 1.5; fill: none; marker-end: url(#arrow); stroke-dasharray: 0; }
+      .dash { stroke-dasharray: 5 5; }
+    </style>
+  </defs>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <text x="32" y="38" class="title">1. Overall Architecture</text>
+  
+<rect x="40" y="90" width="230" height="145" class="box ui"/>
+<text x="54" y="114" class="label">DashboardView</text>
+<text x="54" y="136" class="small">renders FactorySnap</text>
+<text x="54" y="154" class="small">sets FactoryCmd</text>
+<text x="54" y="172" class="small">does not access backend objects</text>
+<rect x="40" y="285" width="230" height="95" class="box ui"/>
+<text x="54" y="309" class="label">belt namespace</text>
+<text x="54" y="331" class="small">DrawBelt</text>
+<text x="54" y="349" class="small">DrawBeltArc</text>
+<rect x="330" y="85" width="250" height="130" class="box boundary"/>
+<text x="344" y="109" class="label">bridge.h: FactorySnap</text>
+<text x="344" y="131" class="small">read-only value snapshot</text>
+<text x="344" y="149" class="small">MachineSnap / PizzaView</text>
+<text x="344" y="167" class="small">OrderSnap</text>
+<rect x="330" y="265" width="250" height="115" class="box boundary"/>
+<text x="344" y="289" class="label">bridge.h: FactoryCmd</text>
+<text x="344" y="311" class="small">one-frame command flags</text>
+<text x="344" y="329" class="small">start / pause / reset</text>
+<text x="344" y="347" class="small">tune / repair</text>
+<rect x="650" y="250" width="250" height="120" class="box control"/>
+<text x="664" y="274" class="label">FactoryController</text>
+<text x="664" y="296" class="small">maps cmd to Factory API</text>
+<text x="664" y="314" class="small">controls tick cadence</text>
+<text x="664" y="332" class="small">advance(deltaTime)</text>
+<rect x="990" y="82" width="245" height="120" class="box model"/>
+<text x="1004" y="106" class="label">Factory</text>
+<text x="1004" y="128" class="small">aggregate root</text>
+<text x="1004" y="146" class="small">owns pipeline</text>
+<text x="1004" y="164" class="small">creates snapshots</text>
+<rect x="990" y="245" width="245" height="120" class="box model"/>
+<text x="1004" y="269" class="label">Machine hierarchy</text>
+<text x="1004" y="291" class="small">polymorphic units</text>
+<text x="1004" y="309" class="small">update / accept / output</text>
+<rect x="990" y="410" width="245" height="105" class="box model"/>
+<text x="1004" y="434" class="label">Pizza hierarchy</text>
+<text x="1004" y="456" class="small">RawDough</text>
+<text x="1004" y="474" class="small">BoxedPizza</text>
+<rect x="990" y="560" width="245" height="105" class="box model"/>
+<text x="1004" y="584" class="label">OrderBook + Scenario</text>
+<text x="1004" y="606" class="small">orders and rewards</text>
+<text x="1004" y="624" class="small">runtime configuration</text>
+<rect x="650" y="85" width="250" height="110" class="box"/>
+<text x="664" y="109" class="label">App</text>
+<text x="664" y="131" class="small">frame coordinator</text>
+<text x="664" y="149" class="small">only place seeing both sides</text>
+
+<path d="M900,140 L990,140" class="edge"/>
+<text x="951" y="134" class="tiny">owns</text>
+<path d="M900,308 L990,305" class="edge"/>
+<text x="951" y="300.5" class="tiny">calls</text>
+<path d="M270,150 L330,150" class="edge"/>
+<text x="306" y="144" class="tiny">reads</text>
+<path d="M580,150 L990,142" class="edge"/>
+<text x="791" y="140" class="tiny">from Factory</text>
+<path d="M270,323 L330,323" class="edge"/>
+<text x="306" y="317" class="tiny">writes</text>
+<path d="M580,323 L650,312" class="edge"/>
+<text x="621" y="311.5" class="tiny">cmd</text>
+<path d="M900,310 L990,180" class="edge"/>
+<text x="951" y="239" class="tiny">Factory API</text>
+<path d="M1112,202 L1112,245" class="edge"/>
+<text x="1118" y="217.5" class="tiny">owns</text>
+<path d="M1112,365 L1112,410" class="edge"/>
+<text x="1118" y="381.5" class="tiny">processes</text>
+<path d="M1112,515 L1112,560" class="edge"/>
+<text x="1118" y="531.5" class="tiny">uses</text>
+<path d="M155,235 L155,285" class="edge"/>
+<text x="161" y="254" class="tiny">draws</text>
+
+</svg>

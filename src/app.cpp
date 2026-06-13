@@ -6,14 +6,14 @@
 #include "views/dashboard_view.h"
 
 // =============================================================================
-//  통합점(seam) — 양쪽(백엔드 Factory + UI View)을 보는 유일한 파일.
+//  Integration seam — the only file that sees both sides (backend Factory + UI View).
 //
-//  매 프레임:
-//    1. snapshot()  → 읽기 전용 스냅샷
-//    2. view.Render(snap, cmd) → 버튼이 cmd 플래그에 표시
-//    3. controller.applyCmd(cmd) → cmd 를 Factory 제어 메서드로 매핑
-//    4. cmd = {}  → 한 프레임만 유효하도록 즉시 비움
-//    5. controller.advance(dt) → running 이면 speed 비례로 step 진행
+//  Every frame:
+//    1. snapshot()  -> read-only snapshot
+//    2. view.Render(snap, cmd) -> buttons mark the cmd flags
+//    3. controller.applyCmd(cmd) -> maps cmd to Factory control methods
+//    4. cmd = {}  -> cleared immediately so it stays valid for one frame only
+//    5. controller.advance(dt) -> if running, steps in proportion to speed
 // =============================================================================
 static Factory           s_factory;
 static FactoryController s_controller;
@@ -37,5 +37,5 @@ void App::Update()
 
 void App::Shutdown()
 {
-    // Factory 소멸자가 파이프라인 자원을 해제한다.
+    // The Factory destructor releases the pipeline resources.
 }

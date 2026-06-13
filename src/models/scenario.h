@@ -1,23 +1,23 @@
 #pragma once
 // =============================================================================
-// scenario.h — 시나리오 (다형성)
+// scenario.h — scenarios (polymorphism)
 //
-//   Scenario(추상) + apply(Factory&)
-//    ├ NormalFlow       : 저부하 파이프라인. 고장/주문 없음. (기본)
-//    ├ Bottleneck       : 투입↑ + 오븐 가공시간↑ → 앞단 백업(병목).
-//    ├ RandomBreakdown  : 전 머신 고장확률↑.
-//    ├ Overflow         : 중간 병목(Oven) + 폭주 투입 → 용량 초과분이 손실(낭비↑).
-//    └ GameMode         : 게임 모드. 주문/경제 활성 + 약한 고장확률.
+//   Scenario (abstract) + apply(Factory&)
+//    + NormalFlow       : low-load pipeline. No breakdowns/orders. (default)
+//    + Bottleneck       : higher input + longer oven process time -> upstream backup (bottleneck).
+//    + RandomBreakdown  : higher breakdown probability on all machines.
+//    + Overflow         : mid-pipeline bottleneck (Oven) + flooded input -> excess capacity is lost (more waste).
+//    + GameMode         : game mode. Orders/economy active + a mild breakdown chance.
 //
-//   * 공정 시연 시나리오(위 4개)는 주문 OFF — 손실 지표가 순수 생산 손실만 의미.
-//   * GameMode만 setOrdersEnabled(true) → 주문/돈 게임 레이어 활성.
-//   * 새 시나리오 = subclass 하나 + 레지스트리 한 줄. (과제 드롭다운 요구 충족)
-//   * Factory의 config API(setAllBreakdownProb 등)만 호출 → 캡슐화 유지.
+//   * The process-demo scenarios (the first 4) keep orders OFF — the loss metric reflects pure production loss only.
+//   * Only GameMode calls setOrdersEnabled(true) -> activates the orders/money game layer.
+//   * A new scenario = one subclass + one registry line. (satisfies the assignment's dropdown requirement)
+//   * Calls only Factory's config API (setAllBreakdownProb, etc.) -> preserves encapsulation.
 // =============================================================================
 #include <string>
 #include <memory>
 
-class Factory;   // 전방 선언 (순환 의존 회피)
+class Factory;   // forward declaration (avoids circular dependency)
 
 class Scenario {
 public:
@@ -56,7 +56,7 @@ public:
     void        apply(Factory& f) const override;
 };
 
-// ── 레지스트리: 드롭다운 인덱스 ↔ 시나리오 ──
+// -- Registry: dropdown index <-> scenario --
 int                       scenarioCount();
 std::string               scenarioName(int idx);
 std::unique_ptr<Scenario> makeScenario(int idx);

@@ -1,15 +1,15 @@
 #pragma once
 // =============================================================================
-// pizza.h — 제품 계층 (절충안)
+// pizza.h — product hierarchy (a pragmatic compromise)
 //
-//   Pizza(추상 베이스)            ← 과제: "추상 product 베이스"
-//    ├ RawDough    (파이프라인 시작 concrete)
-//    └ BoxedPizza  (파이프라인 끝   concrete)
+//   Pizza (abstract base)          <- assignment: "abstract product base"
+//    + RawDough    (concrete at the pipeline start)
+//    + BoxedPizza  (concrete at the pipeline end)
 //
-//   흐르는 동안 RawDough가 소스·치즈·토핑 등 속성을 누적하고,
-//   포장 단계에서 BoxedPizza로 교체된다.
+//   As it flows, RawDough accumulates attributes (sauce, cheese, topping, ...),
+//   and at the packaging stage it is replaced by a BoxedPizza.
 // =============================================================================
-#include "../bridge.h"   // PizzaView (값 구조체)
+#include "../bridge.h"   // PizzaView (value struct)
 #include <string>
 
 enum class DoughStage { RAW = 0, STRETCHED = 1, BAKED = 2 };
@@ -30,7 +30,7 @@ public:
     explicit Pizza(int id) : m_id(id) {}
     virtual ~Pizza() = default;
 
-    // 과제 권장 인터페이스: 사람이 읽을 짧은 요약
+    // Assignment-recommended interface: a short human-readable summary
     virtual std::string getInfo() const = 0;
 
     int        id()    const { return m_id; }
@@ -49,14 +49,14 @@ public:
     void addTopping()           { m_topping = true; }
     void setCut()               { m_cut = true; }
 
-    // 누적 속성을 다른 제품으로 복사 (포장 단계 교체용)
+    // Copy accumulated attributes onto another product (for the packaging-stage swap)
     void copyAttributesTo(Pizza& dst) const {
         dst.m_dough = m_dough; dst.m_size = m_size;
         dst.m_sauce = m_sauce; dst.m_cheese = m_cheese;
         dst.m_topping = m_topping; dst.m_cut = m_cut;
     }
 
-    // 스냅샷용 겉모습 값 생성
+    // Build the appearance value for a snapshot
     PizzaView toView() const {
         PizzaView v;
         v.id = m_id;
@@ -68,14 +68,14 @@ public:
     }
 };
 
-// ── 파이프라인 시작: 생 반죽 ──
+// -- Pipeline start: raw dough --
 class RawDough : public Pizza {
 public:
     explicit RawDough(int id) : Pizza(id) {}
     std::string getInfo() const override;
 };
 
-// ── 파이프라인 끝: 포장 완료된 피자 ──
+// -- Pipeline end: a packaged pizza --
 class BoxedPizza : public Pizza {
 public:
     explicit BoxedPizza(int id) : Pizza(id) { m_boxed = true; }

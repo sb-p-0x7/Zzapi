@@ -3,7 +3,7 @@
 
 namespace belt {
 
-// ── 직선 컨베이어 벨트 (시간 기반 슬릿 애니메이션) ───────────────────────────
+// -- Straight conveyor belt (time-based slit animation) ----------------------
 void DrawBelt(ImDrawList* dl, ImVec2 a, ImVec2 b, bool reverse) {
     dl->AddLine(a, b, IM_COL32(62, 67, 73, 255), 26.0f);
     ImVec2 dir(b.x - a.x, b.y - a.y);
@@ -21,8 +21,8 @@ void DrawBelt(ImDrawList* dl, ImVec2 a, ImVec2 b, bool reverse) {
     }
 }
 
-// ── 반원(semicircle) U-turn 컨베이어 벨트 ────────────────────────────────────
-//    center c 를 중심으로 반지름 R, 각도 a0→a1 의 호 위에 두꺼운 벨트 밴드를 그린다.
+// -- Semicircle U-turn conveyor belt -----------------------------------------
+//    Draws a thick belt band along the arc of radius R from angle a0 -> a1, centered at c.
 void DrawBeltArc(ImDrawList* dl, ImVec2 c, float R, float a0, float a1, bool reverse) {
     const int SEG = 30;
     ImU32 band = IM_COL32(62, 67, 73, 255), edge = IM_COL32(38, 40, 44, 255);

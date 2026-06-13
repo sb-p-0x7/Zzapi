@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="900" viewBox="0 0 1300 900">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#536170"/>
+    </marker>
+    <style>
+      .title { font: 700 24px Arial, sans-serif; fill: #18212b; }
+      .label { font: 700 15px Arial, sans-serif; fill: #18212b; }
+      .small { font: 13px Arial, sans-serif; fill: #2f3b48; }
+      .tiny { font: 12px Arial, sans-serif; fill: #44515f; }
+      .box { fill: #f8fbff; stroke: #8da2b8; stroke-width: 1.4; rx: 10; }
+      .model { fill: #eef8f1; stroke: #71a87f; }
+      .ui { fill: #fff7e8; stroke: #d09a43; }
+      .boundary { fill: #f3f0ff; stroke: #8f7fd1; }
+      .control { fill: #eef6ff; stroke: #6c9eca; }
+      .abstract { fill: #f7f9fc; stroke: #657789; }
+      .edge { stroke: #536170; stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+      .inherit { stroke: #536170; stroke-width: 1.5; fill: none; marker-end: url(#arrow); stroke-dasharray: 0; }
+      .dash { stroke-dasharray: 5 5; }
+    </style>
+  </defs>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <text x="32" y="38" class="title">5. Simulation Tick Flow</text>
+  
+<rect x="520" y="70" width="250" height="70" class="box model"/>
+<text x="534" y="94" class="label">Factory::step()</text>
+<text x="534" y="116" class="small">one logical tick</text>
+<rect x="520" y="175" width="250" height="70" class="box"/>
+<text x="534" y="199" class="label">increase m_tick</text>
+<rect x="480" y="280" width="330" height="80" class="box"/>
+<text x="494" y="304" class="label">for each Machine*</text>
+<text x="494" y="326" class="small">m-&gt;update(tick)</text>
+<text x="494" y="344" class="small">polymorphic call</text>
+<rect x="480" y="400" width="330" height="80" class="box"/>
+<text x="494" y="424" class="label">Factory::transfer()</text>
+<text x="494" y="446" class="small">move outputs back to front</text>
+<rect x="110" y="540" width="255" height="85" class="box"/>
+<text x="124" y="564" class="label">last machine output?</text>
+<text x="124" y="586" class="small">yes: ship finished pizza</text>
+<rect x="520" y="540" width="255" height="85" class="box"/>
+<text x="534" y="564" class="label">next canAccept()?</text>
+<text x="534" y="586" class="small">yes: move to next machine</text>
+<rect x="910" y="540" width="255" height="85" class="box"/>
+<text x="924" y="564" class="label">next is full/broken</text>
+<text x="924" y="586" class="small">mark product as lost</text>
+<rect x="280" y="700" width="255" height="80" class="box"/>
+<text x="294" y="724" class="label">spawn RawDough</text>
+<text x="294" y="746" class="small">if tick % spawnEvery == 0</text>
+<rect x="585" y="700" width="255" height="80" class="box"/>
+<text x="599" y="724" class="label">OrderBook::update()</text>
+<text x="599" y="746" class="small">only in game mode</text>
+<rect x="890" y="700" width="255" height="80" class="box"/>
+<text x="904" y="724" class="label">detectBreakdowns()</text>
+<text x="904" y="746" class="small">append event log</text>
+
+<path d="M645,140 L645,175" class="edge"/>
+
+<path d="M645,245 L645,280" class="edge"/>
+
+<path d="M645,360 L645,400" class="edge"/>
+
+<path d="M520,480 L237,480 L237,540" class="edge"/>
+<text x="243" y="474" class="tiny">finish</text>
+<path d="M645,480 L645,540" class="edge"/>
+<text x="651" y="504" class="tiny">transfer</text>
+<path d="M810,480 L1037,480 L1037,540" class="edge"/>
+<text x="1043" y="474" class="tiny">blocked</text>
+<path d="M237,625 L237,740 L280,740" class="edge"/>
+<text x="243" y="734" class="tiny">ship</text>
+<path d="M645,625 L645,740 L535,740" class="edge"/>
+<text x="651" y="734" class="tiny">move</text>
+<path d="M1037,625 L1037,700" class="edge"/>
+<text x="1043" y="694" class="tiny">lost</text>
+<path d="M535,740 L585,740" class="edge"/>
+
+<path d="M840,740 L890,740" class="edge"/>
+
+
+</svg>

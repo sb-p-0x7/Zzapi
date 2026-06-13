@@ -3,7 +3,7 @@
 #include <cstdio>
 
 // =============================================================================
-// 구성 / 해제
+// Construction / teardown
 // =============================================================================
 void Factory::clear() {
     for (Machine* m : m_pipeline) delete m;
@@ -12,8 +12,8 @@ void Factory::clear() {
 
 void Factory::build() {
     clear();
-    // 파이프라인: 모든 논컨베이어 머신 사이에 컨베이어 벨트를 둔다.
-    //   도우 →[벨트]→ 소스 →[벨트]→ 치즈 →[벨트]→ 토핑 →[벨트]→ 오븐 →[벨트]→ 커터 →[벨트]→ 포장
+    // Pipeline: place a conveyor belt between every pair of non-conveyor machines.
+    //   Dough ->[belt]-> Sauce ->[belt]-> Cheese ->[belt]-> Topping ->[belt]-> Oven ->[belt]-> Cutter ->[belt]-> Packaging
     m_pipeline.push_back(new DoughStretcher());
     m_pipeline.push_back(new ConveyorBelt());
     m_pipeline.push_back(new SauceSpreader());
@@ -31,19 +31,19 @@ void Factory::build() {
 }
 
 // =============================================================================
-// 시나리오 (다형성)
+// Scenario (polymorphism)
 // =============================================================================
 void Factory::loadScenario(int idx) {
     m_scenario = idx;
     build();
     m_orders.reset();
-    m_ordersEnabled = false;          // 기본 OFF — 게임모드 시나리오가 apply()에서 켠다
+    m_ordersEnabled = false;          // OFF by default — a game-mode scenario turns it on in apply()
     m_tick = 0; m_money = 0; m_finished = 0; m_lost = 0; m_breakdowns = 0;
     m_nextId = 1; m_running = false;
     m_log.clear();
 
     auto sc = makeScenario(idx);
-    sc->apply(*this);                 // 머신 파라미터 세팅 (config API 경유)
+    sc->apply(*this);                 // set machine parameters (via the config API)
     log(std::string("Scenario loaded: ") + sc->name());
 }
 
@@ -52,7 +52,7 @@ void Factory::setScenario(int idx) {
 }
 
 // =============================================================================
-// 제어
+// Control
 // =============================================================================
 void Factory::forceBreak(int idx) {
     if (idx < 0 || idx >= (int)m_pipeline.size()) return;
@@ -67,7 +67,7 @@ void Factory::repair(int idx) {
 }
 
 // =============================================================================
-// 시뮬레이션 진행
+// Simulation step
 // =============================================================================
 void Factory::update() {
     if (!m_running) return;
@@ -76,15 +76,15 @@ void Factory::update() {
 
 void Factory::step() {
     ++m_tick;
-    // 1) 머신 진행 (다형성 — 타입 분기 없음)
+    // 1) Advance machines (polymorphism — no type branching)
     for (Machine* m : m_pipeline) m->update((int)m_tick);
-    // 2) 제품 이송 (뒤 → 앞)
+    // 2) Transfer products (back -> front)
     transfer();
-    // 3) 새 반죽 투입
+    // 3) Spawn new dough
     if (m_tick % m_spawnEvery == 0) spawn();
-    // 4) 주문 갱신 (게임모드만)
+    // 4) Update orders (game mode only)
     if (m_ordersEnabled) m_orders.update((int)m_tick);
-    // 5) 고장 이벤트 로깅
+    // 5) Log breakdown events
     detectBreakdowns();
 }
 
@@ -99,7 +99,7 @@ void Factory::transfer() {
     for (int i = N - 1; i >= 0; --i) {
         if (!m_pipeline[i]->hasOutput()) continue;
         if (i == N - 1) {
-            // 마지막 머신 배출 = 완성품
+            // Output of the last machine = finished good
             Pizza* p = m_pipeline[i]->takeOutput();
             ++m_finished;
             if (m_ordersEnabled) {
@@ -113,7 +113,7 @@ void Factory::transfer() {
         } else if (m_pipeline[i + 1]->canAccept()) {
             m_pipeline[i + 1]->accept(m_pipeline[i]->takeOutput());
         } else {
-            // 다음 머신이 꽉 차있으면 → 즉시 loss (레퍼런스 동일 방식)
+            // If the next machine is full -> immediate loss (same approach as the reference)
             Pizza* p = m_pipeline[i]->takeOutput();
             ++m_lost;
             log(p->getInfo() + " lost (overflow)");
@@ -141,7 +141,7 @@ void Factory::log(const std::string& msg) {
 }
 
 // =============================================================================
-// 스냅샷
+// Snapshot
 // =============================================================================
 FactorySnap Factory::snapshot() const {
     FactorySnap s;
