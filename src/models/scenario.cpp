@@ -1,5 +1,6 @@
 #include "scenario.h"
 #include "factory.h"
+#include <random>
 
 // =============================================================================
 // 각 시나리오는 Factory의 config API 만 사용한다 (머신 직접 접근 X).
@@ -10,15 +11,21 @@ void NormalFlow::apply(Factory& f) const {
 }
 
 void RandomBreakdown::apply(Factory& f) const {
-    f.setAllBreakdownProb(0.002f); // 첫 머신 제외 
+    f.setAllBreakdownProb(0.001f); // 전 머신 틱당 고장 확률(동시다발 줄이려 0.002→0.001 하향)
     f.setSpawnInterval(30);
 }
 
 void Bottleneck::apply(Factory& f) const {
+    // 병목 위치를 매 로드마다 무작위로 — 항상 오븐만 느린 단조로움 제거.
+    static const char* kCandidates[] = {
+        "Sauce Spreader", "Cheese Spreader", "Topping Applier", "Oven", "Cutter"
+    };
+    static std::mt19937 rng(std::random_device{}());
+    const char* slow = kCandidates[std::uniform_int_distribution<int>(0, 4)(rng)];
+
     f.setAllBreakdownProb(0.0f);
-    f.setSpawnInterval(15);                     // 투입을 빠르게(라인을 가득 채워 적체 부각)
-    f.setProcessTicksByName("Oven", 40);        // 오븐만 매우 느리게 → 처리량이 오븐에 묶이고
-                                                // 앞단 벨트/머신이 가득 차 백업(병목)
+    f.setSpawnInterval(15);              // 투입을 빠르게(라인을 가득 채워 적체 부각)
+    f.setProcessTicksByName(slow, 40);   // 무작위 한 단계만 매우 느리게 → 그 앞단이 백업(병목)
 }
 
 void Overflow::apply(Factory& f) const {
@@ -28,7 +35,7 @@ void Overflow::apply(Factory& f) const {
     // 주: 손실은 '입력 - 병목 배출'로만 결정됨(실측). 벨트 길이는 손실에 영향 없어 조작하지 않음.
 }
 
-void FreePlay::apply(Factory& f) const {
+void GameMode::apply(Factory& f) const {
     f.setOrdersEnabled(true);       // 게임 모드 — 주문/경제 레이어 활성
     f.setAllBreakdownProb(0.0008f); // 약한 고장 확률
     f.setSpawnInterval(30);
@@ -48,7 +55,7 @@ std::unique_ptr<Scenario> makeScenario(int idx) {
         case 1:  return std::make_unique<Bottleneck>();
         case 2:  return std::make_unique<RandomBreakdown>();
         case 3:  return std::make_unique<Overflow>();
-        case 4:  return std::make_unique<FreePlay>();
+        case 4:  return std::make_unique<GameMode>();
         default: return std::make_unique<NormalFlow>();
     }
 }

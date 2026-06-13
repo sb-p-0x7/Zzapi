@@ -79,6 +79,7 @@ struct FactorySnap {
     bool                     running = false;
     int                      speed   = 1;
     int                      scenario = 0;
+    int                      spawnInterval = 0;   // 현재 도우 투입 주기(틱)
     std::vector<std::string> scenarioNames;   // 드롭다운용
     std::vector<MachineSnap> machines;
     std::vector<OrderSnap>   orders;
@@ -103,5 +104,6 @@ struct FactoryCmd {
     bool forceBreak    = false;
     bool instantRepair = false;
     bool clearLog      = false;
+    int  spawnInterval = -1;    // 도우 투입 주기(틱). -1 = 변경 없음
     MachineTune tune;           // selectedMachine 에 적용 (음수 필드 = 무시)
 };

@@ -149,6 +149,7 @@ FactorySnap Factory::snapshot() const {
     s.running  = m_running;
     s.speed    = m_speed;
     s.scenario = m_scenario;
+    s.spawnInterval = m_spawnEvery;
     for (int i = 0; i < scenarioCount(); ++i) s.scenarioNames.push_back(scenarioName(i));
 
     s.money           = m_money;

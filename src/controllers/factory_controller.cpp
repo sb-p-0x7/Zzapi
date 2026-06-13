@@ -23,6 +23,7 @@ void FactoryController::applyCmd(const FactoryCmd& cmd)
 
     m_factory->setSpeed(cmd.speed);
     m_speed = cmd.speed;
+    if (cmd.spawnInterval > 0) m_factory->setSpawnInterval(cmd.spawnInterval);
 
     if (cmd.forceBreak)    m_factory->forceBreak(cmd.selectedMachine);
     if (cmd.instantRepair) m_factory->repair(cmd.selectedMachine);

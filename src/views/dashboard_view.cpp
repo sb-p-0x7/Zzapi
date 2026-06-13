@@ -117,7 +117,7 @@ void DashboardView::Render(const FactorySnap& snap, FactoryCmd& cmd)
 void DashboardView::RenderControl(const FactorySnap& snap, FactoryCmd& cmd)
 {
     ImGui::SetNextWindowPos(ImVec2(8, 8), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(860, 96), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(860, 124), ImGuiCond_FirstUseEver);
     ImGui::Begin("Simulation Control");
 
     if (snap.running) {
@@ -135,10 +135,15 @@ void DashboardView::RenderControl(const FactorySnap& snap, FactoryCmd& cmd)
     if (ImGui::Button("Reset", ImVec2(90, 0))) cmd.reset = true;
 
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(180);
+    ImGui::SetNextItemWidth(120);
     if (ImGui::SliderInt("Speed", &m_speedUI, 1, 5, "%dx")) cmd.speed = m_speedUI;
 
     ImGui::SameLine();
+    ImGui::SetNextItemWidth(120);
+    int sp = snap.spawnInterval > 0 ? snap.spawnInterval : 30;
+    if (ImGui::SliderInt("Input every (ticks)", &sp, 5, 100, "%d")) cmd.spawnInterval = sp;
+
+
     ImGui::SetNextItemWidth(200);
     std::vector<const char*> names;
     names.reserve(snap.scenarioNames.size());
@@ -425,7 +430,7 @@ void DashboardView::RenderInspector(const FactorySnap& snap, FactoryCmd& cmd)
     }
 
     float bp = m.breakProb * 100.0f;
-    if (ImGui::SliderFloat("Break odds", &bp, 0.0f, 5.0f, "%.2f%%/tick"))
+    if (ImGui::SliderFloat("Break odds", &bp, 0.0f, 20.0f, "%.2f%%/tick"))
         cmd.tune.breakProb = bp / 100.0f;
 
     ImGui::Spacing();

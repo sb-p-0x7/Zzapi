@@ -39,6 +39,11 @@ bool Machine::tickHealth() {
         if (--m_repairTimer <= 0) { m_broken = false; m_durability = m_maxDurability; }
         return false;
     }
+    // 내구도 소진 → 반드시 고장 (health 0이면 breakdown). 수리 시 내구도 복구.
+    if (m_durability <= 0.f) {
+        m_broken = true; m_repairTimer = m_repairTicks;
+        return false;
+    }
     if (m_breakdownProb > 0.f) {
         std::uniform_real_distribution<float> d(0.f, 1.f);
         if (d(rng()) < m_breakdownProb) {
