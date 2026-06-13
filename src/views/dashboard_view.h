@@ -22,6 +22,7 @@ private:
     void RenderEventLog  (const FactorySnap& snap, FactoryCmd& cmd);
     void RenderStatistics(const FactorySnap& snap, FactoryCmd& cmd);
     void RenderOrders    (const FactorySnap& snap, FactoryCmd& cmd);
+    void RenderMachineList (const FactorySnap& snap, FactoryCmd& cmd);
 
     int  m_selected    = -1;     // 선택 머신 인덱스 (-1 = 없음)
     int  m_speedUI     = 1;      // 배속 슬라이더 상태 (1..5)

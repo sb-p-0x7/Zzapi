@@ -107,6 +107,7 @@ void DashboardView::Render(const FactorySnap& snap, FactoryCmd& cmd)
     RenderEventLog(snap, cmd);
     RenderStatistics(snap, cmd);
     RenderOrders(snap, cmd);
+    RenderMachineList(snap, cmd);
 
     m_firstFrame = false;
 }
@@ -168,7 +169,7 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
 {
     (void)cmd;
     ImGui::SetNextWindowPos(ImVec2(8, 112), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(860, 364), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(860, 300), ImGuiCond_FirstUseEver);
     ImGui::Begin("Factory Floor", nullptr, ImGuiWindowFlags_HorizontalScrollbar);
 
     const auto& M = snap.machines;
@@ -346,32 +347,6 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
     ImGui::SetCursorScreenPos(origin);
     ImGui::Dummy(ImVec2(canvasW, canvasH));
 
-    // ── 머신 목록: Selectable + 상태색 + 부하/진행 ProgressBar ──
-    ImGui::Spacing();
-    ImGui::TextDisabled("Machines  (click a row to select)");
-    for (int i = 0; i < N; ++i) {
-        const MachineSnap& m = M[i];
-        ImGui::PushID(1000 + i);
-        bool sel = (i == m_selected);
-        if (ImGui::Selectable("##row", sel, 0, ImVec2(0, 22)))
-            m_selected = sel ? -1 : i;
-        ImGui::SameLine(8);   ImGui::TextUnformatted(m.name.c_str());
-        ImGui::SameLine(150); ImGui::TextColored(StateColor(m.state), "%s", StateLabel(m.state));
-        ImGui::SameLine(210);
-        float frac; char ov[32];
-        if (m.isConveyor) {
-            int cap = std::max(1, (int)m.conveyor.slots.size());
-            frac = (float)m.queueDepth / cap;
-            std::snprintf(ov, sizeof(ov), "load %d/%d", m.queueDepth, cap);
-        } else {
-            frac = m.progressPct;
-            std::snprintf(ov, sizeof(ov), "%d%%", (int)(m.progressPct * 100));
-        }
-        ImGui::SetNextItemWidth(-1);
-        ImGui::ProgressBar(frac, ImVec2(-1, 16), ov);
-        ImGui::PopID();
-    }
-
     ImGui::End();
 }
 
@@ -380,8 +355,8 @@ void DashboardView::RenderFloor(const FactorySnap& snap, FactoryCmd& cmd)
 // =============================================================================
 void DashboardView::RenderInspector(const FactorySnap& snap, FactoryCmd& cmd)
 {
-    ImGui::SetNextWindowPos(ImVec2(8, 484), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(425, 228), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(8, 420), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(425, 292), ImGuiCond_FirstUseEver);
     ImGui::Begin("Inspector");
 
     if (m_selected < 0 || m_selected >= (int)snap.machines.size()) {
@@ -450,8 +425,8 @@ void DashboardView::RenderInspector(const FactorySnap& snap, FactoryCmd& cmd)
 // =============================================================================
 void DashboardView::RenderEventLog(const FactorySnap& snap, FactoryCmd& cmd)
 {
-    ImGui::SetNextWindowPos(ImVec2(441, 484), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(427, 228), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(441, 420), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(427, 292), ImGuiCond_FirstUseEver);
     ImGui::Begin("Event Log");
 
     if (ImGui::Button("Clear")) cmd.clearLog = true;
@@ -478,7 +453,7 @@ void DashboardView::RenderStatistics(const FactorySnap& snap, FactoryCmd& cmd)
 {
     (void)cmd;
     ImGui::SetNextWindowPos(ImVec2(876, 8), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(396, 190), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(396, 220), ImGuiCond_FirstUseEver);
     ImGui::Begin("Statistics");
 
     ImGui::TextColored(ImVec4(0.3f, 0.9f, 0.45f, 1.0f), "finished goods : %d", snap.finishedGoods);
@@ -499,8 +474,8 @@ void DashboardView::RenderStatistics(const FactorySnap& snap, FactoryCmd& cmd)
 void DashboardView::RenderOrders(const FactorySnap& snap, FactoryCmd& cmd)
 {
     (void)cmd;
-    ImGui::SetNextWindowPos(ImVec2(876, 206), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(396, 506), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(876, 236), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(396, 170), ImGuiCond_FirstUseEver);
     ImGui::Begin("Orders");
 
     if (!snap.ordersEnabled) {
@@ -541,6 +516,44 @@ void DashboardView::RenderOrders(const FactorySnap& snap, FactoryCmd& cmd)
         ImGui::PopStyleColor();
         ImGui::PopID();
         ImGui::Spacing();
+    }
+
+    ImGui::End();
+}
+
+// =============================================================================
+// (7) Machine list
+// =============================================================================
+void DashboardView::RenderMachineList(const FactorySnap& snap, FactoryCmd& cmd) {
+    // ── 머신 목록: Selectable + 상태색 + 부하/진행 ProgressBar ──
+    ImGui::SetNextWindowPos(ImVec2(876, 420), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(396, 292), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Machines");
+
+    ImGui::TextDisabled("click a row to select");
+    const auto& M = snap.machines;
+    const int   N = (int)M.size();
+    for (int i = 0; i < N; ++i) {
+        const MachineSnap& m = M[i];
+        ImGui::PushID(1000 + i);
+        bool sel = (i == m_selected);
+        if (ImGui::Selectable("##row", sel, 0, ImVec2(0, 22)))
+            m_selected = sel ? -1 : i;
+        ImGui::SameLine(8);   ImGui::TextUnformatted(m.name.c_str());
+        ImGui::SameLine(150); ImGui::TextColored(StateColor(m.state), "%s", StateLabel(m.state));
+        ImGui::SameLine(210);
+        float frac; char ov[32];
+        if (m.isConveyor) {
+            int cap = std::max(1, (int)m.conveyor.slots.size());
+            frac = (float)m.queueDepth / cap;
+            std::snprintf(ov, sizeof(ov), "load %d/%d", m.queueDepth, cap);
+        } else {
+            frac = m.progressPct;
+            std::snprintf(ov, sizeof(ov), "%d%%", (int)(m.progressPct * 100));
+        }
+        ImGui::SetNextItemWidth(-1);
+        ImGui::ProgressBar(frac, ImVec2(-1, 16), ov);
+        ImGui::PopID();
     }
 
     ImGui::End();
