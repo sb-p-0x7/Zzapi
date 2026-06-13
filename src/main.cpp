@@ -7,39 +7,39 @@
 
 #include "app.h"
 
-// =============================================================================
-// 플랫폼별 한글 폰트 경로
-// =============================================================================
-static const char* GetKoreanFontPath()
-{
-#if defined(__APPLE__)
-    static const char* candidates[] = {
-        "/System/Library/Fonts/Supplemental/AppleSDGothicNeo.ttc",
-        "/System/Library/Fonts/AppleSDGothicNeo.ttc",
-        "/Library/Fonts/AppleGothic.ttf",
-        nullptr
-    };
-#elif defined(_WIN32)
-    static const char* candidates[] = {
-        "C:\\Windows\\Fonts\\malgun.ttf",
-        "C:\\Windows\\Fonts\\gulim.ttc",
-        nullptr
-    };
-#else
-    static const char* candidates[] = {
-        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
-        nullptr
-    };
-#endif
-    for (int i = 0; candidates[i] != nullptr; i++)
-    {
-        FILE* f = fopen(candidates[i], "rb");
-        if (f) { fclose(f); return candidates[i]; }
-    }
-    return nullptr;
-}
+// // =============================================================================
+// // 플랫폼별 한글 폰트 경로
+// // =============================================================================
+// static const char* GetKoreanFontPath()
+// {
+// #if defined(__APPLE__)
+//     static const char* candidates[] = {
+//         "/System/Library/Fonts/Supplemental/AppleSDGothicNeo.ttc",
+//         "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+//         "/Library/Fonts/AppleGothic.ttf",
+//         nullptr
+//     };
+// #elif defined(_WIN32)
+//     static const char* candidates[] = {
+//         "C:\\Windows\\Fonts\\malgun.ttf",
+//         "C:\\Windows\\Fonts\\gulim.ttc",
+//         nullptr
+//     };
+// #else
+//     static const char* candidates[] = {
+//         "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+//         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+//         "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+//         nullptr
+//     };
+// #endif
+//     for (int i = 0; candidates[i] != nullptr; i++)
+//     {
+//         FILE* f = fopen(candidates[i], "rb");
+//         if (f) { fclose(f); return candidates[i]; }
+//     }
+//     return nullptr;
+// }
 
 // =============================================================================
 // GLFW 에러 콜백
@@ -108,45 +108,47 @@ int main(int, char**)
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
-    // ── 한글 폰트 로드 ──
-    {
-        const char* fontPath = GetKoreanFontPath();
-        if (fontPath)
-        {
-            ImFontConfig fontConfig;
-            fontConfig.MergeMode  = false;
-            fontConfig.PixelSnapH = true;
+    // // ── 한글 폰트 로드 ──
+    // {
+    //     const char* fontPath = GetKoreanFontPath();
+    //     if (fontPath)
+    //     {
+    //         ImFontConfig fontConfig;
+    //         fontConfig.MergeMode  = false;
+    //         fontConfig.PixelSnapH = true;
 
-            static const ImWchar ranges[] =
-            {
-                0x0020, 0x00FF, // Basic Latin + Latin Supplement
-                0x0100, 0x024F, // Latin Extended-A/B
-                0x2000, 0x206F, // General Punctuation
-                0x2100, 0x214F, // Letterlike Symbols
-                0x2190, 0x21FF, // Arrows
-                0x2200, 0x22FF, // Mathematical Operators
-                0x2300, 0x23FF, // Misc Technical
-                0x2500, 0x257F, // Box Drawing
-                0x2580, 0x259F, // Block Elements
-                0x25A0, 0x25FF, // Geometric Shapes
-                0x2600, 0x26FF, // Misc Symbols
-                0x2700, 0x27BF, // Dingbats
-                0x3000, 0x30FF, // CJK Symbols, Hiragana, Katakana
-                0x3130, 0x318F, // Hangul Compatibility Jamo
-                0xAC00, 0xD7A3, // Hangul Syllables
-                0xFF00, 0xFFEF, // Halfwidth and Fullwidth Forms
-                0,
-            };
+    //         static const ImWchar ranges[] =
+    //         {
+    //             0x0020, 0x00FF, // Basic Latin + Latin Supplement
+    //             0x0100, 0x024F, // Latin Extended-A/B
+    //             0x2000, 0x206F, // General Punctuation
+    //             0x2100, 0x214F, // Letterlike Symbols
+    //             0x2190, 0x21FF, // Arrows
+    //             0x2200, 0x22FF, // Mathematical Operators
+    //             0x2300, 0x23FF, // Misc Technical
+    //             0x2500, 0x257F, // Box Drawing
+    //             0x2580, 0x259F, // Block Elements
+    //             0x25A0, 0x25FF, // Geometric Shapes
+    //             0x2600, 0x26FF, // Misc Symbols
+    //             0x2700, 0x27BF, // Dingbats
+    //             0x3000, 0x30FF, // CJK Symbols, Hiragana, Katakana
+    //             0x3130, 0x318F, // Hangul Compatibility Jamo
+    //             0xAC00, 0xD7A3, // Hangul Syllables
+    //             0xFF00, 0xFFEF, // Halfwidth and Fullwidth Forms
+    //             0,
+    //         };
 
-            io.Fonts->AddFontFromFileTTF(fontPath, 18.0f, &fontConfig, ranges);
-            fprintf(stdout, "Loaded font: %s\n", fontPath);
-        }
-        else
-        {
-            fprintf(stderr, "Font not found; using default font.\n");
-            io.Fonts->AddFontDefault();
-        }
-    }
+    //         io.Fonts->AddFontFromFileTTF(fontPath, 18.0f, &fontConfig, ranges);
+    //         fprintf(stdout, "Loaded font: %s\n", fontPath);
+    //     }
+    //     else
+    //     {
+    //         fprintf(stderr, "Font not found; using default font.\n");
+    //         io.Fonts->AddFontDefault();
+    //     }
+    // }
+
+    io.Fonts->AddFontDefault(); // Explicit Font Path 
 
     // ── 앱 초기화 ──
     App app;
