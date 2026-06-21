@@ -5,10 +5,7 @@
 > Raw dough enters, flows through machines and conveyor belts, and leaves as a boxed pizza
 > that you ship against incoming customer orders for money.
 
-<!-- After taking a screenshot of the running app, save it as docs/screenshot.png and
-     uncomment the next line:
-![Zzapi dashboard](docs/screenshot.png)
--->
+![Zzapi — pizza factory simulator demo](docs/demo_normal.gif)
 
 ---
 
